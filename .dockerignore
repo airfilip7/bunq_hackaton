@@ -1,8 +1,3 @@
-.idea/
-.claude/*
-.claude/agents/*
-.venv/
-
 .env
 .env.*
 
@@ -10,13 +5,19 @@
 *.db-wal
 *.db-shm
 
-*.egg-info/
-dist/
-build/
-
 __pycache__/
 *.pyc
 *.pyo
 
+*.egg-info/
+dist/
+build/
+
+.git/
 .pytest_cache/
 .mypy_cache/
+
+frontend/node_modules/
+frontend/dist/
+
+demo/
