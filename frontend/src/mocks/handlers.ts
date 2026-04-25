@@ -1,46 +1,46 @@
-import { http, HttpResponse } from 'msw'
-import type { OnboardResponse } from '@/api/types'
+import { http, HttpResponse } from "msw";
+import type { OnboardResponse } from "@/api/types";
 
 // ---------------------------------------------------------------------------
 // Fixture loader — streams an .sse file line-by-line with a delay.
 // ---------------------------------------------------------------------------
 
 async function* sseLines(text: string, delayMs = 40) {
-  const blocks = text.trim().split('\n\n')
+  const blocks = text.trim().split("\n\n");
   for (const block of blocks) {
-    await new Promise((r) => setTimeout(r, delayMs))
-    yield new TextEncoder().encode(block + '\n\n')
+    await new Promise((r) => setTimeout(r, delayMs));
+    yield new TextEncoder().encode(block + "\n\n");
   }
 }
 
 function streamFixture(text: string, delayMs = 40): ReadableStream<Uint8Array> {
-  const gen = sseLines(text, delayMs)
+  const gen = sseLines(text, delayMs);
   return new ReadableStream({
     async pull(ctrl) {
-      const { value, done } = await gen.next()
-      if (done) ctrl.close()
-      else ctrl.enqueue(value)
+      const { value, done } = await gen.next();
+      if (done) ctrl.close();
+      else ctrl.enqueue(value);
     },
-  })
+  });
 }
 
 // ---------------------------------------------------------------------------
 // Fixture files (imported as raw strings via ?raw)
 // ---------------------------------------------------------------------------
 
-import pureText          from './fixtures/pure_text.sse?raw'
-import readTool          from './fixtures/read_tool_then_text.sse?raw'
-import proposalFlow      from './fixtures/proposal_flow.sse?raw'
-import bootstrapSession  from './fixtures/bootstrap_first_session.sse?raw'
+import pureText from "./fixtures/pure_text.sse?raw";
+import readTool from "./fixtures/read_tool_then_text.sse?raw";
+import proposalFlow from "./fixtures/proposal_flow.sse?raw";
+import bootstrapSession from "./fixtures/bootstrap_first_session.sse?raw";
 
 // Pick a fixture based on the request body.
 function pickFixture(body: { type: string; content?: string }): string {
-  if (body.content === '__bootstrap__') return bootstrapSession
-  if (body.type === 'tool_approval')    return pureText        // approval confirmation
+  if (body.content === "__bootstrap__") return bootstrapSession;
+  if (body.type === "tool_approval") return pureText; // approval confirmation
   // Cycle through scenarios for regular messages (useful for demos).
-  const scenarios = [pureText, readTool, proposalFlow]
-  const idx = Math.floor(Math.random() * scenarios.length)
-  return scenarios[idx]
+  const scenarios = [pureText, readTool, proposalFlow];
+  const idx = Math.floor(Math.random() * scenarios.length);
+  return scenarios[idx];
 }
 
 // ---------------------------------------------------------------------------
@@ -48,20 +48,24 @@ function pickFixture(body: { type: string; content?: string }): string {
 // ---------------------------------------------------------------------------
 
 const MOCK_ONBOARD: OnboardResponse = {
-  session_id: 'mock-session-001',
+  session_id: "mock-session-001",
   profile: {
-    payslip: { gross_monthly_eur: 5167, net_monthly_eur: 3520, confidence: 'high' },
-    target:  { price_eur: 425000, address: 'Utrecht, NL' },
+    payslip: {
+      gross_monthly_eur: 5167,
+      net_monthly_eur: 3520,
+      confidence: "high",
+    },
+    target: { price_eur: 425000, address: "Utrecht, NL" },
     projection: {
-      savings_now_eur:     34000,
-      deposit_target_eur:  55000,
-      gap_eur:             21000,
+      savings_now_eur: 34000,
+      deposit_target_eur: 55000,
+      gap_eur: 21000,
       monthly_savings_eur: 1450,
-      months_to_goal:      14,
-      headroom_range_eur:  [285000, 320000],
+      months_to_goal: 14,
+      headroom_range_eur: [285000, 320000],
     },
   },
-}
+};
 
 // ---------------------------------------------------------------------------
 // Handlers
@@ -69,56 +73,59 @@ const MOCK_ONBOARD: OnboardResponse = {
 
 export const handlers = [
   // Chat turn — SSE stream
-  http.post('/chat/sessions/:id/turns', async ({ request }) => {
-    const body = (await request.json()) as { type: string; content?: string }
-    const fixture = pickFixture(body)
+  http.post("/chat/sessions/:id/turns", async ({ request }) => {
+    const body = (await request.json()) as { type: string; content?: string };
+    const fixture = pickFixture(body);
     return new HttpResponse(streamFixture(fixture, 35), {
       headers: {
-        'Content-Type':      'text/event-stream',
-        'Cache-Control':     'no-store',
-        'X-Accel-Buffering': 'no',
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-store",
+        "X-Accel-Buffering": "no",
       },
-    })
+    });
   }),
 
   // Presigned upload URL
-  http.post('/onboard/upload-url', () =>
+  http.post("/onboard/upload-url", () =>
     HttpResponse.json({
-      upload_url:       'http://localhost:5173/__mock_s3_put',
-      s3_key:           `mock-payslip-${Date.now()}.jpg`,
-      expires_at:       Date.now() + 300_000,
-      required_headers: { 'Content-Type': 'image/jpeg' },
+      upload_url: "http://localhost:5173/__mock_s3_put",
+      s3_key: `mock-payslip-${Date.now()}.jpg`,
+      expires_at: Date.now() + 300_000,
+      required_headers: { "Content-Type": "image/jpeg" },
     }),
   ),
 
   // S3 PUT (mock bucket)
-  http.put('http://localhost:5173/__mock_s3_put', () =>
-    new HttpResponse(null, { status: 200 }),
+  http.put(
+    "http://localhost:5173/__mock_s3_put",
+    () => new HttpResponse(null, { status: 200 }),
   ),
 
   // Onboard submit — simulates Lambda + Funda + bunq fan-out delay
-  http.post('/onboard', async () => {
-    await new Promise((r) => setTimeout(r, 2500))
-    return HttpResponse.json(MOCK_ONBOARD)
+  http.post("/onboard", async () => {
+    await new Promise((r) => setTimeout(r, 2500));
+    return HttpResponse.json(MOCK_ONBOARD);
   }),
 
   // Session list
-  http.get('/chat/sessions', () =>
-    HttpResponse.json([{ session_id: 'mock-session-001', started_at: Date.now() }]),
+  http.get("/chat/sessions", () =>
+    HttpResponse.json([
+      { session_id: "mock-session-001", started_at: Date.now() },
+    ]),
   ),
 
   // Session detail — returns history + profile for session resume
-  http.get('/chat/sessions/:id', ({ params }) =>
+  http.get("/chat/sessions/:id", ({ params }) =>
     HttpResponse.json({
       session_id: params.id,
       profile: MOCK_ONBOARD.profile,
       messages: [
         {
-          id: 'resume-msg-1',
-          role: 'assistant',
+          id: "resume-msg-1",
+          role: "assistant",
           content:
-            'Welcome back, Tim! Your savings are still at €34,000 — you\'re 14 months from your deposit target. '
-            + 'What would you like to focus on today?',
+            "Welcome back, Tim! Your savings are still at €34,000 — you're 14 months from your deposit target. " +
+            "What would you like to focus on today?",
           streaming: false,
           tool_calls: [],
         },
@@ -126,4 +133,4 @@ export const handlers = [
       pending_tool: null,
     }),
   ),
-]
+];
