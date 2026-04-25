@@ -12,10 +12,10 @@ from contextlib import asynccontextmanager
 
 from anthropic import AsyncAnthropicBedrock
 
-logger = logging.getLogger(__name__)
-
 from backend.config import settings
 from backend.prompts import VLM_PAYSLIP
+
+logger = logging.getLogger(__name__)
 
 client = AsyncAnthropicBedrock(aws_region=settings.aws_region)
 

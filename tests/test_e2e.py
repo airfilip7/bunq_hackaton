@@ -8,17 +8,13 @@ FastAPI app with a fresh SQLite store per test.
 from __future__ import annotations
 
 import json
-import time
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
-import ulid
 
 from backend.deps import get_bunq_client, get_storage
 from backend.main import app
-from backend.models import Payslip, PendingTool, Profile, Target, Turn
-from backend.storage.sqlite_store import SqliteStore, init_db
 
 
 # ── SSE parsing ──────────────────────────────────────────────────────────────
