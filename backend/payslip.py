@@ -10,7 +10,7 @@ from pydantic import BaseModel
 import backend.dynamo as dynamo
 import backend.s3 as s3
 from backend.config import settings
-from backend.prompts import PAYSLIP_EXTRACT_PROMPT
+from backend.prompts import VLM_PAYSLIP as PAYSLIP_EXTRACT_PROMPT
 
 logger = logging.getLogger(__name__)
 
