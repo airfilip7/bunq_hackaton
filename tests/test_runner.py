@@ -572,3 +572,302 @@ async def test_execute_write_tool_unknown():
     result = await execute_write_tool("unknown_tool", {}, bunq)
     assert result["ok"] is False
     assert "Unknown write tool" in result["error"]
+
+
+# ── Phase 9: approval override validation ─────────────────────────────────────
+
+
+def _make_move_money_pending(session_id: str) -> PendingTool:
+    return PendingTool(
+        tool_use_id="tu_phase9",
+        session_id=session_id,
+        tool_name="propose_move_money",
+        params={"from_bucket_id": "b1", "to_bucket_id": "b2", "amount_eur": 200, "reason": "House"},
+        summary="Move €200 to House",
+        rationale="Accelerate savings",
+        risk_level="low",
+        proposed_at=int(time.time() * 1000),
+    )
+
+
+def _store_pending_with_assistant_turn(store, session_id: str, pending: PendingTool) -> None:
+    store.put_pending_tool(session_id, pending)
+    store.append_turn(
+        session_id,
+        make_turn(
+            session_id,
+            kind="assistant_message",
+            content="I suggest moving money.",
+            tool_uses=[{"id": pending.tool_use_id, "name": pending.tool_name, "input": pending.params}],
+        ),
+    )
+
+
+async def test_run_turn_approval_with_valid_overrides(store):
+    store.upsert_profile(make_profile())
+    session = store.create_session("u_test")
+    pending = _make_move_money_pending(session.session_id)
+    _store_pending_with_assistant_turn(store, session.session_id, pending)
+
+    follow_up_events = [
+        text_start(0),
+        text_delta("Done! €300 moved.", 0),
+        block_stop(0),
+    ]
+
+    bunq = MockBunqClient()
+    sse = SseCollector()
+
+    with patch("backend.agent.runner.stream_chat", return_value=MockStream(follow_up_events)):
+        await run_turn(
+            session_id=session.session_id,
+            inbound={
+                "type": "tool_approval",
+                "tool_use_id": "tu_phase9",
+                "decision": "approve",
+                "overrides": {"amount_eur": 300},
+            },
+            storage=store,
+            bunq_client=bunq,
+            user_id="u_test",
+            sse_emit=sse,
+        )
+
+    # bunq called with overridden amount
+    assert len(bunq.move_money_calls) == 1
+    assert bunq.move_money_calls[0] == ("b1", "b2", 300)
+
+    # Pending cleared
+    assert store.get_pending_tool(session.session_id, "tu_phase9") is None
+
+
+async def test_run_turn_approval_with_invalid_override_key(store):
+    store.upsert_profile(make_profile())
+    session = store.create_session("u_test")
+    pending = _make_move_money_pending(session.session_id)
+    _store_pending_with_assistant_turn(store, session.session_id, pending)
+
+    bunq = MockBunqClient()
+    sse = SseCollector()
+
+    with patch("backend.agent.runner.stream_chat"):
+        await run_turn(
+            session_id=session.session_id,
+            inbound={
+                "type": "tool_approval",
+                "tool_use_id": "tu_phase9",
+                "decision": "approve",
+                "overrides": {"hacker_field": "pwned"},
+            },
+            storage=store,
+            bunq_client=bunq,
+            user_id="u_test",
+            sse_emit=sse,
+        )
+
+    event_types = [e[0] for e in sse.events]
+    assert "error" in event_types
+
+    # Pending cleared even on validation failure
+    assert store.get_pending_tool(session.session_id, "tu_phase9") is None
+
+    # bunq NOT called
+    assert bunq.move_money_calls == []
+
+
+async def test_run_turn_approval_with_invalid_override_type(store):
+    store.upsert_profile(make_profile())
+    session = store.create_session("u_test")
+    pending = _make_move_money_pending(session.session_id)
+    _store_pending_with_assistant_turn(store, session.session_id, pending)
+
+    bunq = MockBunqClient()
+    sse = SseCollector()
+
+    with patch("backend.agent.runner.stream_chat"):
+        await run_turn(
+            session_id=session.session_id,
+            inbound={
+                "type": "tool_approval",
+                "tool_use_id": "tu_phase9",
+                "decision": "approve",
+                "overrides": {"amount_eur": "not a number"},
+            },
+            storage=store,
+            bunq_client=bunq,
+            user_id="u_test",
+            sse_emit=sse,
+        )
+
+    event_types = [e[0] for e in sse.events]
+    assert "error" in event_types
+    assert store.get_pending_tool(session.session_id, "tu_phase9") is None
+    assert bunq.move_money_calls == []
+
+
+async def test_run_turn_approval_with_negative_amount_override(store):
+    store.upsert_profile(make_profile())
+    session = store.create_session("u_test")
+    pending = _make_move_money_pending(session.session_id)
+    _store_pending_with_assistant_turn(store, session.session_id, pending)
+
+    bunq = MockBunqClient()
+    sse = SseCollector()
+
+    with patch("backend.agent.runner.stream_chat"):
+        await run_turn(
+            session_id=session.session_id,
+            inbound={
+                "type": "tool_approval",
+                "tool_use_id": "tu_phase9",
+                "decision": "approve",
+                "overrides": {"amount_eur": -50},
+            },
+            storage=store,
+            bunq_client=bunq,
+            user_id="u_test",
+            sse_emit=sse,
+        )
+
+    event_types = [e[0] for e in sse.events]
+    assert "error" in event_types
+    assert store.get_pending_tool(session.session_id, "tu_phase9") is None
+    assert bunq.move_money_calls == []
+
+
+async def test_tool_proposal_includes_rationale_and_risk(store):
+    store.upsert_profile(make_profile())
+    session = store.create_session("u_test")
+
+    move_input = '{"from_bucket_id": "b1", "to_bucket_id": "b2", "amount_eur": 200, "reason": "Save more"}'
+    events = [
+        text_start(0),
+        text_delta("I suggest moving some money.", 0),
+        block_stop(0),
+        tool_start(1, "tu_rationale1", "propose_move_money"),
+        input_delta(1, move_input),
+        block_stop(1),
+    ]
+
+    sse = SseCollector()
+
+    with patch("backend.agent.runner.stream_chat", return_value=MockStream(events)):
+        await run_turn(
+            session_id=session.session_id,
+            inbound={"type": "user_message", "content": "Move money to house fund"},
+            storage=store,
+            bunq_client=MockBunqClient(),
+            user_id="u_test",
+            sse_emit=sse,
+        )
+
+    proposal_events = [e for e in sse.events if e[0] == "tool_proposal"]
+    assert len(proposal_events) == 1
+    proposal_data = proposal_events[0][1]
+    assert "rationale" in proposal_data
+    assert "risk_level" in proposal_data
+
+
+class ErrorBunqClient(MockBunqClient):
+    async def move_money(self, from_id, to_id, amount_eur):
+        raise ValueError("Insufficient balance in b1: 100.00 < 200.00")
+
+
+async def test_run_turn_approval_bunq_error(store):
+    store.upsert_profile(make_profile())
+    session = store.create_session("u_test")
+    pending = _make_move_money_pending(session.session_id)
+    _store_pending_with_assistant_turn(store, session.session_id, pending)
+
+    follow_up_events = [
+        text_start(0),
+        text_delta("Sorry, the transfer failed.", 0),
+        block_stop(0),
+    ]
+
+    bunq = ErrorBunqClient()
+    sse = SseCollector()
+
+    with patch("backend.agent.runner.stream_chat", return_value=MockStream(follow_up_events)):
+        await run_turn(
+            session_id=session.session_id,
+            inbound={
+                "type": "tool_approval",
+                "tool_use_id": "tu_phase9",
+                "decision": "approve",
+            },
+            storage=store,
+            bunq_client=bunq,
+            user_id="u_test",
+            sse_emit=sse,
+        )
+
+    # tool_result SSE event has ok: False
+    tool_result_events = [e for e in sse.events if e[0] == "tool_result"]
+    assert len(tool_result_events) >= 1
+    assert tool_result_events[0][1]["ok"] is False
+
+    # Pending cleared
+    assert store.get_pending_tool(session.session_id, "tu_phase9") is None
+
+    # tool_result Turn persisted with ok=False
+    turns = store.list_turns(session.session_id, include_hidden=True)
+    result_turns = [t for t in turns if t.kind == "tool_result"]
+    assert len(result_turns) >= 1
+    assert result_turns[-1].ok is False
+
+    # Model follow-up ran (done event exists)
+    event_types = [e[0] for e in sse.events]
+    assert "done" in event_types
+
+
+async def test_run_turn_approval_create_bucket(store):
+    store.upsert_profile(make_profile())
+    session = store.create_session("u_test")
+
+    pending = PendingTool(
+        tool_use_id="tu_bucket1",
+        session_id=session.session_id,
+        tool_name="propose_create_bucket",
+        params={"name": "Holiday", "target_eur": 2000, "reason": "Vacation savings"},
+        summary="Create Holiday bucket",
+        rationale="Vacation savings",
+        risk_level="low",
+        proposed_at=int(time.time() * 1000),
+    )
+    store.put_pending_tool(session.session_id, pending)
+    store.append_turn(
+        session.session_id,
+        make_turn(
+            session.session_id,
+            kind="assistant_message",
+            content="Let me create a Holiday bucket.",
+            tool_uses=[{"id": "tu_bucket1", "name": "propose_create_bucket", "input": pending.params}],
+        ),
+    )
+
+    follow_up_events = [
+        text_start(0),
+        text_delta("Holiday bucket created!", 0),
+        block_stop(0),
+    ]
+
+    bunq = MockBunqClient()
+    sse = SseCollector()
+
+    with patch("backend.agent.runner.stream_chat", return_value=MockStream(follow_up_events)):
+        await run_turn(
+            session_id=session.session_id,
+            inbound={
+                "type": "tool_approval",
+                "tool_use_id": "tu_bucket1",
+                "decision": "approve",
+            },
+            storage=store,
+            bunq_client=bunq,
+            user_id="u_test",
+            sse_emit=sse,
+        )
+
+    assert bunq.create_bucket_calls == [("Holiday", 2000)]
+    assert store.get_pending_tool(session.session_id, "tu_bucket1") is None
