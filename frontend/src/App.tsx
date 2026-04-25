@@ -1,7 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { OnboardRoute } from './routes/OnboardRoute'
-import { ChatRoute }    from './routes/ChatRoute'
+import { WelcomeRoute } from './routes/WelcomeRoute'
+import { OnboardRoute }  from './routes/OnboardRoute'
+import { ChatRoute }     from './routes/ChatRoute'
 
 const queryClient = new QueryClient()
 
@@ -16,9 +17,10 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
+          <Route path="/"        element={<WelcomeRoute />} />
           <Route path="/onboard" element={<OnboardRoute />} />
           <Route path="/chat"    element={<ChatRoute />} />
-          <Route path="*"        element={<PreserveParamsRedirect to="/onboard" />} />
+          <Route path="*"        element={<PreserveParamsRedirect to="/" />} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>
