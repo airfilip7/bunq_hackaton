@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Icon } from '@/components/Icon'
 
 const DISMISSED_KEY = 'bunq_nest.disclaimer_dismissed'
 
@@ -10,19 +11,25 @@ export function DisclaimerBanner() {
   if (dismissed) return null
 
   return (
-    <div className="w-full bg-surface-1 border-b border-surface-3 px-4 py-2 flex items-center justify-between gap-4 text-xs text-text-secondary">
+    <div style={{
+      width: '100%', background: 'rgba(0,0,0,0.30)',
+      borderBottom: '1px solid var(--line-2)',
+      padding: '8px 16px',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+      fontSize: 12, color: 'var(--ink-3)',
+    }}>
       <span>
         bunq Nest helps you prepare for homeownership. It is not mortgage advice.
         When you're ready to apply, bunq connects you with licensed advisors.
       </span>
       <button
-        className="shrink-0 text-text-disabled hover:text-text-secondary"
         onClick={() => {
           localStorage.setItem(DISMISSED_KEY, 'true')
           setDismissed(true)
         }}
+        style={{ flexShrink: 0, color: 'var(--ink-4)', cursor: 'pointer' }}
       >
-        ✕
+        <Icon name="x" size={14}/>
       </button>
     </div>
   )

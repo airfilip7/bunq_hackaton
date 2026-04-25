@@ -1,17 +1,17 @@
+import { Icon } from '@/components/Icon'
 import { ToolPill } from './ToolPill'
 import type { Message } from '@/api/types'
 
 function AssistantAvatar() {
   return (
-    <img
-      src="/bunq-avatar.png"
-      alt="bunq"
-      style={{
-        width: 28, height: 28, borderRadius: 999, flexShrink: 0,
-        objectFit: 'cover',
-        boxShadow: '0 0 0 3px rgba(30,200,200,0.12)',
-      }}
-    />
+    <div style={{
+      width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
+      background: 'linear-gradient(135deg, var(--violet), var(--violet-deep))',
+      color: 'white', display: 'grid', placeItems: 'center',
+      boxShadow: '0 0 0 3px var(--violet-soft)',
+    }}>
+      <Icon name="bunq" size={20} stroke={2}/>
+    </div>
   )
 }
 
@@ -19,9 +19,9 @@ type Props = { message: Message }
 
 export function AssistantMessage({ message }: Props) {
   return (
-    <div style={{ display: 'flex', gap: 10, padding: '0 16px', alignItems: 'flex-start' }}>
+    <div className="animate-fade-up" style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
       <AssistantAvatar />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: '82%' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 560 }}>
         {(message.tool_calls ?? []).length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {message.tool_calls!.map((tc) => (
@@ -29,10 +29,18 @@ export function AssistantMessage({ message }: Props) {
             ))}
           </div>
         )}
-        <div style={{ fontSize: 14, lineHeight: 1.55, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
-          {message.content}
-          {message.streaming && <span className="bunq-cursor" />}
-        </div>
+        {message.content && (
+          <div style={{
+            padding: '14px 18px',
+            background: 'rgba(255,255,255,0.05)',
+            borderRadius: 18, borderTopLeftRadius: 6,
+            border: '1px solid var(--line)',
+            fontSize: 15, lineHeight: 1.55, color: 'var(--ink)',
+          }}>
+            {message.content}
+            {message.streaming && <span className="bunq-cursor" />}
+          </div>
+        )}
       </div>
     </div>
   )

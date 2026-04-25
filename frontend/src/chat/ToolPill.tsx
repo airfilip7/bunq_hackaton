@@ -1,3 +1,4 @@
+import { Icon } from '@/components/Icon'
 import type { ToolCallRecord } from '@/api/types'
 
 const TOOL_LABELS: Record<string, string> = {
@@ -25,9 +26,7 @@ export function ToolPill({ toolCall }: Props) {
   return (
     <span className="pill">
       <span className="pill-check">
-        <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
-          <path d="M1.5 4.5L3.5 6.5L7.5 2.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        <Icon name="check" size={9}/>
       </span>
       {label}
     </span>

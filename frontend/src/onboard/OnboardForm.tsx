@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Icon } from '@/components/Icon'
 import { PayslipUpload } from './PayslipUpload'
 import { FundaInput } from './FundaInput'
 import { submitOnboard } from '@/api/onboard'
@@ -11,78 +12,34 @@ type FormState = {
   fundaPriceOverride?: number
 }
 
-type StepState = 'done' | 'active' | 'pending'
+const FUNDA_LISTING_REGEX = /^https:\/\/(www\.)?funda\.nl\/(detail\/)?(koop|huur|nieuwbouw)\//
 
-function StepIndicator({ n, state }: { n: number; state: StepState }) {
-  if (state === 'done') return (
-    <div style={{
-      width: 28, height: 28, borderRadius: 999, flexShrink: 0,
-      background: 'var(--bunq-teal)', color: '#06222a',
-      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      boxShadow: '0 0 0 4px rgba(30,200,200,0.12)',
-    }}>
-      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-        <path d="M2.5 6.5L4.8 8.8L9.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </div>
-  )
-  if (state === 'active') return (
-    <div style={{
-      width: 28, height: 28, borderRadius: 999, flexShrink: 0,
-      background: 'transparent', border: '1.5px solid var(--bunq-teal)',
-      color: 'var(--bunq-teal)',
-      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 13, fontWeight: 600,
-      boxShadow: '0 0 0 4px rgba(30,200,200,0.12)',
-    }}>{n}</div>
-  )
-  return (
-    <div style={{
-      width: 28, height: 28, borderRadius: 999, flexShrink: 0,
-      background: 'var(--surface-2)', border: '1px solid var(--surface-3)',
-      color: 'var(--text-disabled)',
-      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 13, fontWeight: 600,
-    }}>{n}</div>
-  )
-}
-
-function StepRow({ n, title, subtitle, state, children }: {
-  n: number; title: string; subtitle: string; state: StepState; children?: React.ReactNode
-}) {
-  return (
-    <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-        <StepIndicator n={n} state={state} />
-        <div style={{
-          flex: 1, width: 1.5, minHeight: 24, marginTop: 6,
-          background: state === 'done' ? 'var(--bunq-teal)' : 'var(--surface-3)',
-          opacity: state === 'done' ? 0.4 : 1,
-        }} />
-      </div>
-      <div style={{ flex: 1, paddingBottom: 24, minWidth: 0 }}>
-        <div style={{
-          fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em',
-          color: state === 'pending' ? 'var(--text-secondary)' : 'var(--text-primary)',
-        }}>{title}</div>
-        <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.45 }}>
-          {subtitle}
-        </div>
-        {children && <div style={{ marginTop: 12 }}>{children}</div>}
-      </div>
-    </div>
-  )
+const us = {
+  page: { minHeight: '100vh', padding: '32px 24px 80px', color: 'var(--ink)' } as React.CSSProperties,
+  topbar: { maxWidth: 880, margin: '0 auto 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' } as React.CSSProperties,
+  back: { display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--ink-3)', fontSize: 14, padding: '8px 12px', borderRadius: 999, cursor: 'pointer' } as React.CSSProperties,
+  brand: { display: 'flex', alignItems: 'center', gap: 10, fontWeight: 600, fontSize: 15 } as React.CSSProperties,
+  brandMark: { width: 26, height: 26, borderRadius: 8, background: 'var(--rainbow)', color: 'white', display: 'grid', placeItems: 'center', fontFamily: 'var(--font-serif)', fontStyle: 'italic' as const, fontSize: 16 } as React.CSSProperties,
+  card: { maxWidth: 880, margin: '0 auto', background: 'rgba(20,10,32,0.6)', borderRadius: 28, border: '1px solid var(--line)', overflow: 'hidden', backdropFilter: 'blur(20px)', boxShadow: 'var(--shadow-lg)' } as React.CSSProperties,
+  header: { padding: '40px 48px 28px', background: 'linear-gradient(180deg, rgba(168,85,247,0.10), transparent)', borderBottom: '1px solid var(--line-2)', position: 'relative' as const } as React.CSSProperties,
+  greet: { fontFamily: 'var(--font-serif)', fontSize: 38, lineHeight: 1.05, fontWeight: 400, letterSpacing: '-0.02em', margin: '0 0 10px' } as React.CSSProperties,
+  greetSub: { fontSize: 16, color: 'var(--ink-3)', lineHeight: 1.55, margin: 0, maxWidth: 540 } as React.CSSProperties,
+  body: { padding: '32px 48px 36px' } as React.CSSProperties,
+  sectionLabel: { display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 600, letterSpacing: '0.02em', textTransform: 'uppercase' as const, marginBottom: 12, color: 'var(--ink-2)' } as React.CSSProperties,
+  dot: { width: 22, height: 22, borderRadius: '50%', background: 'var(--violet)', color: 'white', display: 'grid', placeItems: 'center', fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500 } as React.CSSProperties,
+  helper: { fontSize: 14, color: 'var(--ink-3)', marginBottom: 14, lineHeight: 1.55 } as React.CSSProperties,
+  divider: { height: 1, background: 'var(--line-2)', margin: '32px 0' } as React.CSSProperties,
+  footer: { padding: '20px 48px 28px', borderTop: '1px solid var(--line-2)', background: 'rgba(0,0,0,0.30)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } as React.CSSProperties,
+  note: { fontSize: 13, color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 8 } as React.CSSProperties,
+  submit: { display: 'inline-flex', alignItems: 'center', gap: 10, padding: '14px 22px', borderRadius: 999, background: 'linear-gradient(135deg, var(--violet), var(--violet-deep))', color: 'white', fontSize: 15, fontWeight: 500, boxShadow: '0 6px 20px -6px rgba(168,85,247,0.6)', cursor: 'pointer', border: 'none' } as React.CSSProperties,
+  submitOff: { opacity: 0.35, cursor: 'not-allowed', boxShadow: 'none' } as React.CSSProperties,
 }
 
 export function OnboardForm() {
   const navigate = useNavigate()
-  const [form, setForm]         = useState<FormState>({})
+  const [form, setForm]             = useState<FormState>({})
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError]       = useState<string | null>(null)
-
-  const step2State: StepState = !form.payslipResult
-    ? 'pending'
-    : FUNDA_LISTING_REGEX.test(form.fundaUrl ?? '') ? 'done' : 'active'
+  const [error, setError]           = useState<string | null>(null)
 
   const canSubmit = !!form.payslipResult && FUNDA_LISTING_REGEX.test(form.fundaUrl ?? '')
 
@@ -111,89 +68,76 @@ export function OnboardForm() {
   }
 
   return (
-    <div style={{
-      minHeight: '100svh',
-      background: 'var(--surface-0)',
-      display: 'flex', flexDirection: 'column',
-    }}>
-      {/* Logo */}
-      <div style={{ padding: '16px 24px 4px' }}>
-        <img
-          src="/bunq-logo.svg"
-          alt="bunq"
-          style={{ height: 22, width: 'auto', filter: 'invert(1) brightness(1.1)' }}
-        />
-      </div>
-
-      {/* Heading */}
-      <div style={{ padding: '16px 24px 20px' }}>
-        <div className="t-caption" style={{ color: 'var(--bunq-teal)', marginBottom: 6 }}>Set up · 2 steps</div>
-        <div className="t-display" style={{ fontSize: 24, lineHeight: 1.2 }}>
-          Two things and<br />we're tracking.
-        </div>
-        <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 8, lineHeight: 1.5 }}>
-          We use these to set a realistic target and check in on your progress.
-        </div>
-      </div>
-
-      {/* Steps */}
-      <div style={{ flex: 1, padding: '0 24px', overflow: 'auto' }}>
-        <StepRow
-          n={1} state={form.payslipResult ? 'done' : 'active'}
-          title="Upload your payslip"
-          subtitle="One recent payslip is enough. We read income, taxes, and pension contributions."
-        >
-          <PayslipUpload onComplete={(payslipResult) => setForm((f) => ({ ...f, payslipResult }))} />
-        </StepRow>
-
-        <StepRow
-          n={2} state={step2State}
-          title="Add a Funda listing"
-          subtitle="Doesn't need to be the one — just a price point you're aiming for."
-        >
-          {form.payslipResult && (
-            <FundaInput
-              value={form.fundaUrl ?? ''}
-              onChange={(fundaUrl, fundaPriceOverride) =>
-                setForm((f) => ({ ...f, fundaUrl, fundaPriceOverride }))
-              }
-            />
-          )}
-        </StepRow>
-      </div>
-
-      {/* CTA */}
-      <div style={{
-        padding: '14px 20px 28px',
-        borderTop: '1px solid var(--surface-3)',
-        background: 'var(--surface-0)',
-        display: 'flex', flexDirection: 'column', gap: 10,
-        flexShrink: 0,
-      }}>
-        <button
-          className="btn btn-primary"
-          disabled={!canSubmit || submitting}
-          onClick={handleSubmit}
-          style={{ width: '100%', height: 48, borderRadius: 12, fontSize: 15 }}
-        >
-          {submitting ? 'Preparing your plan…' : 'Build my plan'}
-          {!submitting && (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
-            </svg>
-          )}
+    <div style={us.page}>
+      {/* Top bar */}
+      <div style={us.topbar}>
+        <button onClick={() => navigate('/')} style={us.back}>
+          <Icon name="arrow-left" size={16}/> Back
         </button>
-        {error && <div style={{ fontSize: 12.5, color: 'var(--error)', textAlign: 'center' }}>{error}</div>}
-        <div style={{ fontSize: 11.5, color: 'var(--text-disabled)', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-          <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
-            <path d="M9.5 5.5V4a3.5 3.5 0 0 0-7 0v1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none" />
-            <rect x="2" y="5.5" width="8" height="5.5" rx="1.2" stroke="currentColor" strokeWidth="1.2" fill="none" />
-          </svg>
-          Bank-grade encryption · we never store originals
+        <div style={us.brand}>
+          <div style={us.brandMark}>n</div>
+          <span>bunq <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', color: 'var(--violet-2)' }}>Nest</span></span>
+        </div>
+        <div style={{ width: 60 }}/>
+      </div>
+
+      {/* Card */}
+      <div style={us.card} className="animate-fade-up">
+        {/* Header */}
+        <div style={us.header}>
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'var(--rainbow)', opacity: 0.85 }}/>
+          <h1 style={us.greet}>Hi <span style={{ fontStyle: 'italic', color: 'var(--violet-2)' }}>Tim</span></h1>
+          <p style={us.greetSub}>Two quick things and your coach can take it from here. We'll keep everything private — promise.</p>
+        </div>
+
+        {/* Body */}
+        <div style={us.body}>
+          {/* Step 1 — Payslip */}
+          <div style={us.sectionLabel}><span style={us.dot}>1</span>Your latest payslip</div>
+          <p style={us.helper}>Upload, snap a photo, or drag it in. PDFs and JPGs both work — we'll read the income for you.</p>
+          <PayslipUpload onComplete={(payslipResult) => setForm((f) => ({ ...f, payslipResult }))} />
+
+          <div style={us.divider}/>
+
+          {/* Step 2 — Funda */}
+          <div style={us.sectionLabel}><span style={us.dot}>2</span>The home you have your eye on</div>
+          <p style={us.helper}>Drop a Funda link here. Just browsing? You can always come back with one later.</p>
+          <FundaInput
+            value={form.fundaUrl ?? ''}
+            onChange={(fundaUrl, fundaPriceOverride) =>
+              setForm((f) => ({ ...f, fundaUrl, fundaPriceOverride }))
+            }
+          />
+        </div>
+
+        {/* Footer */}
+        <div style={us.footer}>
+          <div style={us.note}>
+            <Icon name="shield" size={14} color="var(--violet-2)"/>
+            Encrypted and stored in the EU. Never shared.
+          </div>
+          <button
+            disabled={!canSubmit || submitting}
+            onClick={handleSubmit}
+            style={{ ...us.submit, ...(canSubmit && !submitting ? {} : us.submitOff) }}
+          >
+            {submitting ? 'Preparing your plan...' : 'Meet your coach'}
+            {!submitting && <Icon name="arrow-right" size={16}/>}
+          </button>
         </div>
       </div>
+
+      {/* Progress indicator */}
+      <div style={{ maxWidth: 880, margin: '20px auto 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, fontSize: 13, color: 'var(--ink-3)' }}>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ width: 28, height: 4, borderRadius: 2, background: 'var(--violet)' }}/>
+          <div style={{ width: 28, height: 4, borderRadius: 2, background: canSubmit ? 'var(--violet)' : 'var(--line)' }}/>
+          <div style={{ width: 28, height: 4, borderRadius: 2, background: 'var(--line)' }}/>
+        </div>
+        <span>Step 2 of 3</span>
+      </div>
+
+      {error && <div style={{ maxWidth: 880, margin: '12px auto 0', fontSize: 13, color: 'var(--terracotta)', textAlign: 'center' }}>{error}</div>}
     </div>
   )
 }
-
-const FUNDA_LISTING_REGEX = /^https:\/\/(www\.)?funda\.nl\/(detail\/)?(koop|huur|nieuwbouw)\//

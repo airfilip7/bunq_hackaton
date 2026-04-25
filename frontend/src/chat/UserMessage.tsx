@@ -2,16 +2,14 @@ type Props = { content: string }
 
 export function UserMessage({ content }: Props) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 16px' }}>
+    <div className="animate-fade-up" style={{ display: 'flex', justifyContent: 'flex-end' }}>
       <div style={{
-        maxWidth: '78%',
-        background: 'var(--surface-2)',
-        border: '1px solid var(--surface-3)',
-        borderRadius: '16px 16px 4px 16px',
-        padding: '10px 14px',
-        fontSize: 14,
-        lineHeight: 1.5,
-        color: 'var(--text-primary)',
+        maxWidth: 560,
+        padding: '14px 18px',
+        background: 'linear-gradient(135deg, var(--violet), var(--violet-deep))',
+        color: 'white',
+        borderRadius: 18, borderTopRightRadius: 6,
+        fontSize: 15, lineHeight: 1.55,
       }}>
         {content}
       </div>

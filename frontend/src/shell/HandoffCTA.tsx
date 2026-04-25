@@ -1,27 +1,32 @@
-import { Button } from '@/components/ui/button'
+import { Icon } from '@/components/Icon'
 import { useChatStore } from '@/chat/chatStore'
 
-// Lights up when the agent reports months_to_goal <= 6.
-// For now we drive this from the store; the agent turn can update it via a dedicated field.
 type Props = { monthsToGoal: number | null }
 
 export function HandoffCTA({ monthsToGoal }: Props) {
   const ready = monthsToGoal !== null && monthsToGoal <= 6
 
   return (
-    <div className="fixed bottom-24 right-4">
-      <Button
+    <div style={{ position: 'fixed', bottom: 24, right: 24 }}>
+      <button
         disabled={!ready}
         title={ready ? 'Connect with a licensed advisor' : 'Available when you\'re within 6 months of your goal'}
-        className={[
-          'rounded-full shadow-lg text-sm px-4 py-2 transition-all',
-          ready
-            ? 'bg-bunq-teal text-surface-0 hover:bg-bunq-teal/90'
-            : 'bg-surface-2 text-text-disabled cursor-not-allowed opacity-40',
-        ].join(' ')}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+          padding: '12px 20px', borderRadius: 999,
+          fontSize: 14, fontWeight: 500,
+          border: 'none', cursor: ready ? 'pointer' : 'not-allowed',
+          boxShadow: ready ? 'var(--shadow-glow)' : 'var(--shadow-sm)',
+          transition: 'all 0.2s ease',
+          ...(ready
+            ? { background: 'linear-gradient(135deg, var(--violet), var(--violet-deep))', color: 'white' }
+            : { background: 'var(--surface)', color: 'var(--ink-4)', opacity: 0.5 }
+          ),
+        }}
       >
+        <Icon name="chat" size={16}/>
         Talk to an advisor
-      </Button>
+      </button>
     </div>
   )
 }

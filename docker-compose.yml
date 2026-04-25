@@ -22,4 +22,5 @@ services:
       - API_PROXY_TARGET=http://backend:8000
     volumes:
       - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
       - ./frontend/vite.config.ts:/app/vite.config.ts

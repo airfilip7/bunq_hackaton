@@ -6,7 +6,10 @@
       "Bash(ls /Users/Filip_1/bunq_hackaton/frontend/Dockerfile* /Users/Filip_1/bunq_hackaton/backend/Dockerfile*)",
       "Bash(docker compose ps *)",
       "Bash(docker compose logs *)",
-      "Bash(docker compose *)"
+      "Bash(docker compose *)",
+      "Bash(unzip -o \"Bunq Nest.zip\" -d \"bunq-nest-design\")",
+      "Bash(npm run *)",
+      "Bash(npx vite *)"
     ]
   }
 }

@@ -15,7 +15,7 @@ function AnimatedNumber({ to, format }: { to: number; format: (n: number) => str
 }
 
 function fmt(n: number) {
-  return '€' + n.toLocaleString('nl-NL')
+  return '\u20AC' + n.toLocaleString('nl-NL')
 }
 
 type Props = { profile: ProfileSnapshot }
@@ -37,8 +37,8 @@ export function PopulatingDashboard({ profile }: Props) {
     {
       label: 'Headroom',
       node: (
-        <span className="t-num" style={{ color: 'var(--bunq-teal)', fontSize: 16 }}>
-          {fmt(projection.headroom_range_eur[0])}–{fmt(projection.headroom_range_eur[1])}
+        <span className="t-num" style={{ color: 'var(--violet-2)', fontSize: 16 }}>
+          {fmt(projection.headroom_range_eur[0])}\u2013{fmt(projection.headroom_range_eur[1])}
         </span>
       ),
       sub: 'per Nibud norms',
@@ -50,22 +50,22 @@ export function PopulatingDashboard({ profile }: Props) {
       display: 'grid',
       gridTemplateColumns: '1fr 1fr 1.3fr',
       gap: 1,
-      background: 'var(--surface-3)',
-      borderRadius: 16,
+      background: 'var(--line)',
+      borderRadius: 18,
       overflow: 'hidden',
-      border: '1px solid var(--surface-3)',
+      border: '1px solid var(--line)',
     }}>
       {stats.map((s) => (
         <div key={s.label} style={{
-          background: 'var(--surface-2)',
-          padding: '12px 14px 14px',
+          background: 'rgba(255,255,255,0.04)',
+          padding: '14px 16px 16px',
           display: 'flex', flexDirection: 'column', gap: 4,
         }}>
           <div className="t-caption" style={{ fontSize: 10, letterSpacing: '0.08em' }}>{s.label}</div>
-          <div style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--text-primary)', lineHeight: 1.1 }}>
+          <div style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ink)', lineHeight: 1.1 }}>
             {s.node}
           </div>
-          <div style={{ fontSize: 10, color: 'var(--text-secondary)', fontWeight: 500 }}>{s.sub}</div>
+          <div style={{ fontSize: 10, color: 'var(--ink-3)', fontWeight: 500 }}>{s.sub}</div>
         </div>
       ))}
     </div>
