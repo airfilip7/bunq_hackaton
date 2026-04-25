@@ -58,7 +58,6 @@ backend/
    BUNQ_MODE=fixture
    STORAGE_BACKEND=sqlite
    SQLITE_PATH=./bunq_nest.db
-   JWT_SECRET=
    DEMO_USER_ID=u_demo
    FUNDA_MODE=fixture
    DEMO_REPLAY=0
@@ -73,15 +72,14 @@ backend/
 
 ---
 
-## Phase 1 — Auth stub + storage primitive (1h)
+## Phase 1 — User identity + storage primitive (1h)
 
-**Goal:** every protected route resolves to a `user_id`; we can read/write all entity types.
+**Goal:** every route resolves to a `user_id`; we can read/write all entity types.
 
 ### Tasks
 
 1. `backend/deps.py`:
-   - `get_current_user_id(authorization: str = Header(...)) -> str`
-   - **Hackathon shortcut:** if `Authorization: Bearer demo`, return `DEMO_USER_ID`. Else decode JWT. Mark with `# DEMO ONLY` comment.
+   - `get_user_id() -> str` — returns `settings.demo_user_id`. No auth header, no JWT. bunq Nest is an in-app feature; the user is already authenticated as a bunq customer. Identity is derived from the bunq sandbox API key.
    - `get_storage() -> Storage`
 
 2. `backend/storage/base.py` — define `Storage` Protocol:
@@ -377,27 +375,27 @@ storage.clear_pending_tool(session_id, evt.tool_use_id)
 
    # 3. Onboard
    SESSION_ID=$(curl -s -X POST http://localhost:8000/onboard \
-     -H "Authorization: Bearer demo" \
+     \
      -H "Content-Type: application/json" \
      -d '{"payslip":{...},"funda_url":"..."}' | jq -r .session_id)
 
    # 4. First turn (streaming — note -N)
    curl -N -X POST http://localhost:8000/chat/sessions/$SESSION_ID/turns \
-     -H "Authorization: Bearer demo" \
+     \
      -H "Content-Type: application/json" \
      -H "Accept: text/event-stream" \
      -d '{"type":"user_message","content":"How am I doing?"}'
 
    # 5. Trigger a write proposal
    curl -N -X POST http://localhost:8000/chat/sessions/$SESSION_ID/turns \
-     -H "Authorization: Bearer demo" \
+     \
      -H "Content-Type: application/json" \
      -H "Accept: text/event-stream" \
      -d '{"type":"user_message","content":"Move €200 from buffer to house"}'
 
    # 6. Approve (substitute real tool_use_id from previous response)
    curl -N -X POST http://localhost:8000/chat/sessions/$SESSION_ID/turns \
-     -H "Authorization: Bearer demo" \
+     \
      -H "Content-Type: application/json" \
      -H "Accept: text/event-stream" \
      -d '{"type":"tool_approval","tool_use_id":"tu_01...","decision":"approve"}'
@@ -422,8 +420,7 @@ Do in this order, stop when out of time. Each is ~1–2h.
 | 11.1 DynamoDB | Implement `dynamo_store.py` against `Storage` Protocol; set `STORAGE_BACKEND=dynamo` | All routes, agent loop, tools |
 | 11.2 S3 + presigned upload | Replace `POST /onboard/upload-payslip` with `/upload-url` + direct S3 PUT; backend reads from S3 | Extractor logic |
 | 11.3 Bedrock | Swap `AsyncAnthropic` → `AsyncAnthropicBedrock` in `anthropic_client.py`; pin Bedrock model ids; verify eu-central-1 availability | Everything else |
-| 11.4 Cognito | Replace `Bearer demo` shortcut with `python-jose` + Cognito JWKS | Everything else |
-| 11.5 Deploy | Containerize, push to ECR, App Runner | All of the above |
+| 11.4 Deploy | Containerize, push to ECR, App Runner | All of the above |
 
 **Pitfall:** every swap is a regression risk. Lock the local build, branch for each swap, only merge when smoke passes.
 

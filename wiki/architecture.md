@@ -23,10 +23,10 @@ The form is throwaway; the chat is the product.
 ┌─────────────────┐         ┌──────────────────────────────────────────────┐
 │   React + Vite  │         │                Backend (FastAPI)             │
 │   (browser)     │  HTTPS  │                                              │
-│                 │ ───────▶│  /auth/*    Cognito-issued JWT verify         │
+│                 │ ───────▶│  (no auth — user = bunq sandbox key)          │
 │  - Onboarding   │         │  /onboard   one-shot bootstrap                │
 │  - Chat (SSE)   │ ◀─SSE── │  /chat/*    turns, streaming, approvals       │
-│                 │         │  /bunq/*    OAuth callback + proxy            │
+│                 │         │                                              │
 └─────────────────┘         └────────────┬─────────────────────────────────┘
                                           │
         ┌─────────────────────────────────┼──────────────────────────────────┐
@@ -60,7 +60,7 @@ The form is throwaway; the chat is the product.
 [User opens app for the first time]
        │
        ▼
-1. Login (Cognito hosted UI) ──▶ JWT in browser
+1. User opens bunq Nest (already authenticated as bunq customer)
        │
        ▼
 2. Backend sees user.onboarded == false ──▶ redirect /onboard
@@ -70,14 +70,13 @@ The form is throwaway; the chat is the product.
        │
        ▼
 4. Browser uploads payslip directly to s3://payslip-imgs/{user}/{uuid}.jpg
-       │      and POSTs /onboard with { s3_key, funda_url, bunq_oauth_code }
+       │      and POSTs /onboard with { s3_key, funda_url }
        ▼
 5. Backend:
-   ├── completes bunq OAuth code → access/refresh token, encrypts, stores
    ├── triggers payslip-extract Lambda (sync invoke, ~3-5s) ──▶ Bedrock vision
    │       returns { gross_monthly_eur, net_monthly_eur, employer_name, ... }
    ├── fetches Funda URL ──▶ Sonnet 4.6 extracts price/address/size
-   ├── pulls bunq snapshot: monetary-accounts, last 6mo transactions, buckets
+   ├── pulls bunq snapshot via sandbox API key: monetary-accounts, last 6mo transactions, buckets
    └── writes Users#profile, creates Session#1, computes initial projection
        │
        ▼
@@ -153,18 +152,17 @@ Read tools execute eagerly. Write tools always go through the approval lane. The
 
 ---
 
-## 6. Auth and bunq OAuth
+## 6. Auth and bunq access
+
+bunq Nest is an in-app feature — the user is already authenticated as a bunq customer. There is no login screen, no JWT, no Cognito.
 
 | Concern | Approach |
 |---|---|
-| User sign-in to bunq Nest | **Amazon Cognito** user pool with the hosted UI (email + password; social later). Issues a JWT access token, verified by FastAPI on every request. |
-| Linking bunq | Standard OAuth 2.0 authorization-code flow against bunq's API. The `/bunq/oauth/callback` exchanges the code for an access + refresh token, encrypts them with KMS (`alias/bunq-tokens`), and stores in DynamoDB under `BunqTokens#{user_id}`. |
-| Token use | A `BunqClient` helper in the backend loads the encrypted token, decrypts on demand, signs API calls. Refresh tokens are used silently when the access token is near expiry. |
-| Scopes | Read transactions + buckets for the read tools. Write scope (move money, create bucket) only requested when the user first triggers an action that needs it — incremental consent. |
-| Token rotation | Refresh tokens stored encrypted; rotated on every refresh; old version overwritten. No plaintext token ever leaves the backend. |
-| Session timeout | Cognito JWT lifetime: 1h access / 30d refresh. bunq tokens live independently; if bunq revokes, the next API call surfaces a re-auth prompt in chat. |
+| User identity | Derived from the bunq sandbox API key used at deploy time. For the demo, a single hard-coded user (`demo_user_id` in config). `get_user_id()` in `backend/deps.py` returns this. |
+| bunq data access | Static sandbox API key generated via `POST /v1/sandbox-user-person`. Stored in the backend's secret manager (env var), not in DynamoDB. `BunqClient` signs every API call with this key. |
+| Scopes | The sandbox key grants full access to the sandbox user's accounts, transactions, and buckets. No incremental consent needed. |
 
-**[risk]** Real bunq OAuth in 24h is non-trivial. If we're behind at the 12h mark, fall back to a stubbed `BunqClient` that reads from a fixture JSON file — the rest of the architecture stays identical.
+**No OAuth, no token rotation, no JWT verification.** Production would inherit identity from the bunq app context; for the hackathon, the sandbox key is sufficient.
 
 ---
 
@@ -192,7 +190,7 @@ GSI1 (`user_id` → `last_active_at`) lets us list sessions per user.
 | Backend API | FastAPI on **AWS App Runner** (or ECS Fargate) | App Runner is the lowest-effort path: one container, public HTTPS, IAM role for AWS calls. SSE works through it without extra config. |
 | Image Lambda | AWS Lambda + S3 trigger (or sync invoke) | `eu-central-1`, 1GB memory, 30s timeout. |
 | Inference | Amazon Bedrock | `eu-central-1` for residency. Models pinned by id. |
-| Auth | Amazon Cognito | Hosted UI, one user pool. |
+| Auth | None (in-app feature) | User identity from bunq sandbox API key. |
 | Data | DynamoDB on-demand, S3, KMS | All in one region. |
 | Logs/metrics | CloudWatch Logs + a single dashboard | Bedrock token usage, Lambda duration, agent turn p95. |
 

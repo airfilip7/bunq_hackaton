@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 import backend.payslip as payslip_module
 import backend.s3 as s3
-from backend.auth import get_current_user_id
+from backend.deps import get_user_id
 from backend.payslip import PayslipExtract
 
 router = APIRouter()
@@ -25,7 +25,7 @@ class ExtractPayslipRequest(BaseModel):
 
 
 @router.post("/upload-url", response_model=UploadUrlResponse)
-def upload_url(user_id: str = Depends(get_current_user_id)):
+def upload_url(user_id: str = Depends(get_user_id)):
     img_id = uuid.uuid4().hex
     presigned_url, s3_key = s3.presigned_put_url(user_id, img_id)
     from backend.config import settings
@@ -43,6 +43,6 @@ def upload_url(user_id: str = Depends(get_current_user_id)):
 @router.post("/extract-payslip", response_model=PayslipExtract)
 def extract_payslip(
     request: ExtractPayslipRequest = Body(...),
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(get_user_id),
 ):
     return payslip_module.extract_and_persist(user_id, request.s3_key)

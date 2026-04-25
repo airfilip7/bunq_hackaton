@@ -10,7 +10,6 @@ class Settings(BaseSettings):
     bunq_mode: str = "fixture"
     storage_backend: str = "sqlite"
     sqlite_path: str = "/tmp/bunq_nest.db"
-    jwt_secret: str = ""
     demo_user_id: str = "u_demo"
     funda_mode: str = "fixture"
     demo_replay: int = 0

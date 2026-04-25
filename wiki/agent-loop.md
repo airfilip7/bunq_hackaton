@@ -53,7 +53,7 @@ Accept: text/event-stream
 
 The server:
 
-1. Loads the session and verifies the user owns it (Cognito JWT → `user_id`, compared to `Sessions.user_id`).
+1. Loads the session and resolves the user identity (derived from the bunq sandbox API key — no auth header needed).
 2. Persists the inbound event as an append-only row in `Turns`.
 3. If this is an approval, executes the bunq side-effect *now* (before the model runs again), persists a `TOOL_RESULT` row, and constructs a synthetic Anthropic `tool_result` block to feed into the model.
 4. Loads conversation history, opens a Bedrock streaming call to Sonnet 4.6, and runs the agent loop (below).
@@ -251,7 +251,7 @@ The user can also keep typing a normal message; the frontend interprets that as 
 | User closes the tab while a proposal is pending | The `PENDING_TOOL` row stays. Next session open, the frontend reads it and re-renders the approval card. |
 | Two browser tabs open at the same session | Idempotency: every `POST /turns` carries a client-generated `idempotency_key`. Server dedupes for 60s. |
 | Race between user typing and an arriving tool proposal | The user's message becomes the next turn; on receiving it, the server clears the pending tool with an implicit denial and processes the message normally. |
-| Cognito token expired mid-stream | 401, frontend silently refreshes, replays the inbound event. |
+| _(no auth token to expire — user identity is static)_ | |
 
 ---
 
@@ -282,4 +282,4 @@ The augmentation lives in a single `build_system_prompt(user_id)` function so it
 - The exact Bedrock model id string (Sonnet 4.6 availability on Bedrock — confirm at build time; fall back to current Sonnet vision otherwise).
 - Frontend component decomposition. The contract above is enough.
 - Exact DynamoDB conditional expressions for write-once turn ordering (`turn_id` is a UUID v7; `SK = TURN#{epoch_ms}#{turn_id}` is naturally sortable).
-- Rate limiting. Cognito + per-user-per-minute is enough for a demo.
+- Rate limiting. Not needed for single-user demo.

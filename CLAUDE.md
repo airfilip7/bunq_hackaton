@@ -67,7 +67,8 @@ End-to-end first-session demo in ~90 seconds. Repeat-session demo in <10s to a p
               │ or ECS Fargate)    │ ──────▶ │  Bedrock        │
               │ - /onboard         │         │  - Claude vision│
               │ - /chat (SSE)      │         │  - Sonnet 4.6   │
-              │                    │         └─────────────────┘
+              │ (no auth layer —   │         └─────────────────┘
+              │  user = bunq key)  │
               └────┬──────┬────────┘
                    │      │
         S3 PUT     │      │ DynamoDB single table
@@ -84,7 +85,7 @@ End-to-end first-session demo in ~90 seconds. Repeat-session demo in <10s to a p
         └─────────────┘
                                                 ┌─────────────────┐
                                                 │ bunq Public API │
-                                                │ (OAuth-scoped)  │
+                                                │ (sandbox key)   │
                                                 └─────────────────┘
 ```
 
