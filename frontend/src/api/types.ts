@@ -116,6 +116,17 @@ export type OnboardResponse = {
 }
 
 // ---------------------------------------------------------------------------
+// Session detail — returned by GET /chat/sessions/{id}
+// ---------------------------------------------------------------------------
+
+export type SessionDetail = {
+  session_id: string
+  profile: ProfileSnapshot
+  messages: Message[]          // pre-assembled display history
+  pending_tool: ToolProposal | null
+}
+
+// ---------------------------------------------------------------------------
 // Session / message shapes (internal to frontend)
 // ---------------------------------------------------------------------------
 

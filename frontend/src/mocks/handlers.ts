@@ -106,4 +106,24 @@ export const handlers = [
   http.get('/chat/sessions', () =>
     HttpResponse.json([{ session_id: 'mock-session-001', started_at: Date.now() }]),
   ),
+
+  // Session detail — returns history + profile for session resume
+  http.get('/chat/sessions/:id', ({ params }) =>
+    HttpResponse.json({
+      session_id: params.id,
+      profile: MOCK_ONBOARD.profile,
+      messages: [
+        {
+          id: 'resume-msg-1',
+          role: 'assistant',
+          content:
+            'Welcome back, Tim! Your savings are still at €34,000 — you\'re 14 months from your deposit target. '
+            + 'What would you like to focus on today?',
+          streaming: false,
+          tool_calls: [],
+        },
+      ],
+      pending_tool: null,
+    }),
+  ),
 ]

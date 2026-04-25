@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Message, ToolProposal, ProfileSnapshot } from '@/api/types'
+import type { Message, ToolProposal, ProfileSnapshot, SessionDetail } from '@/api/types'
 
 export type StreamState = 'idle' | 'streaming' | 'awaiting_approval' | 'error'
 
@@ -14,6 +14,7 @@ type ChatStore = {
   // actions
   setSession: (id: string) => void
   setProfile: (profile: ProfileSnapshot) => void
+  loadSession: (detail: SessionDetail) => void  // atomic restore for session resume
   appendUserMessage: (msg: Message) => void
   startAssistantMessage: (id: string) => void
   appendDelta: (id: string, text: string) => void
@@ -40,6 +41,9 @@ export const useChatStore = create<ChatStore>((set) => ({
   setSession: (id) => set({ sessionId: id }),
 
   setProfile: (profile) => set({ profile }),
+
+  loadSession: ({ session_id, profile, messages, pending_tool }) =>
+    set({ sessionId: session_id, profile, messages, pendingTool: pending_tool }),
 
   appendUserMessage: (msg) =>
     set((s) => ({ messages: [...s.messages, msg] })),
