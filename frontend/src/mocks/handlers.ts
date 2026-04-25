@@ -101,6 +101,26 @@ export const handlers = [
     () => new HttpResponse(null, { status: 200 }),
   ),
 
+  // Funda parse — simulates backend fetching + LLM extraction
+  http.post("/onboard/parse-funda", async ({ request }) => {
+    const { url } = (await request.json()) as { url: string };
+    await new Promise((r) => setTimeout(r, 900)); // simulate fetch + LLM
+    // Extract a slug from the URL to make the mock feel realistic
+    const slug = url.split("/").filter(Boolean).pop() ?? "listing";
+    const address = slug
+      .replace(/^(huis|appartement|woning)-\d+-/, "")
+      .replace(/-/g, " ")
+      .replace(/\/$/, "")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+    return HttpResponse.json({
+      price_eur: 425000,
+      address: address || "Listing",
+      size_m2: 78,
+      property_type: "huis",
+      confidence: "high",
+    });
+  }),
+
   // Onboard submit — simulates Lambda + Funda + bunq fan-out delay
   http.post("/onboard", async () => {
     await new Promise((r) => setTimeout(r, 2500));

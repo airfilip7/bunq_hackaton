@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { OnboardRequest, UploadUrlResponse, OnboardResponse } from './types'
+import type { OnboardRequest, UploadUrlResponse, OnboardResponse, FundaParseResult } from './types'
 
 export async function getUploadUrl(): Promise<UploadUrlResponse> {
   const res = await apiFetch('/onboard/upload-url', { method: 'POST' })
@@ -14,6 +14,15 @@ export async function uploadPayslip(file: File, uploadData: UploadUrlResponse): 
     body: file,
   })
   if (!res.ok) throw new Error('Payslip upload failed')
+}
+
+export async function parseFunda(url: string): Promise<FundaParseResult> {
+  const res = await apiFetch('/onboard/parse-funda', {
+    method: 'POST',
+    body: JSON.stringify({ url }),
+  })
+  if (!res.ok) throw new Error(`parse-funda ${res.status}`)
+  return res.json() as Promise<FundaParseResult>
 }
 
 export async function submitOnboard(body: OnboardRequest): Promise<OnboardResponse> {

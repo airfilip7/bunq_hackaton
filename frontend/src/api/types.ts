@@ -81,6 +81,15 @@ export type UploadUrlResponse = {
   required_headers: Record<string, string>  // e.g. { 'Content-Type': 'image/jpeg' }
 }
 
+// POST /onboard/parse-funda
+export type FundaParseResult = {
+  price_eur: number | null
+  address: string | null
+  size_m2: number | null
+  property_type: string | null
+  confidence: 'high' | 'medium' | 'low'
+}
+
 // POST /onboard
 export type OnboardRequest = {
   s3_key: string

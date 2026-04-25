@@ -77,6 +77,10 @@
 
 /* ─── Streaming cursor ───────────────────────────────────────────────────── */
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 @keyframes bunq-blink {
   0%, 49%   { opacity: 1; }
   50%, 100% { opacity: 0; }
