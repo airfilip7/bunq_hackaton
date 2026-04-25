@@ -1,4 +1,5 @@
 import { Icon } from '@/components/Icon'
+import { Markdown } from '@/components/Markdown'
 import { ToolPill } from './ToolPill'
 import type { Message } from '@/api/types'
 
@@ -37,7 +38,7 @@ export function AssistantMessage({ message }: Props) {
             border: '1px solid var(--line)',
             fontSize: 15, lineHeight: 1.55, color: 'var(--ink)',
           }}>
-            {message.content}
+            <Markdown text={message.content} />
             {message.streaming && <span className="bunq-cursor" />}
           </div>
         )}
