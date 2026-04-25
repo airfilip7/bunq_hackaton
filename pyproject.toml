@@ -21,6 +21,7 @@ dependencies = [
     "Pillow>=10.0",
     "beautifulsoup4>=4.12",
     "python-ulid>=2.0",
+    "cryptography>=42.0",
 ]
 
 [project.optional-dependencies]
