@@ -6,7 +6,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    anthropic_api_key: str = ""
+    aws_region: str = "us-east-1"
+    bedrock_vision_model: str = "us.anthropic.claude-sonnet-4-6"
+    bedrock_chat_model: str = "us.anthropic.claude-sonnet-4-6"
     bunq_mode: str = "fixture"
     storage_backend: str = "sqlite"
     sqlite_path: str = "/tmp/bunq_nest.db"

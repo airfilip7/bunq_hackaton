@@ -117,22 +117,30 @@ backend/
 
 ---
 
-## Phase 2 — Anthropic client (30 min)
+## Phase 2 — Anthropic Bedrock client (30 min) ✅
 
-**Goal:** one client shared by VLM extraction and the agent loop.
+**Goal:** one client shared by VLM extraction and the agent loop, running on Amazon Bedrock.
 
 ### Tasks
 
 1. `backend/anthropic_client.py`:
-   - `client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)` (module-level)
-   - `MODEL_VISION = "claude-sonnet-4-5"` — **confirm the exact string at build time**
-   - `MODEL_CHAT = "claude-sonnet-4-5"` — same; update if a newer one is available
+   - `client = AsyncAnthropicBedrock(aws_region=settings.aws_region)` (module-level) — uses the standard AWS credential chain (env vars, `~/.aws/credentials`, IAM role)
+   - `MODEL_VISION = settings.bedrock_vision_model` — configurable via env, defaults to `anthropic.claude-sonnet-4-6`
+   - `MODEL_CHAT = settings.bedrock_chat_model` — same default
    - `async def extract_payslip(image_bytes: bytes, media_type: str) -> dict` — vision prompt from `prompts.py`, parse JSON response, raise `ExtractionError` on parse failure
-   - `async def stream_chat(system: str, messages: list, tools: list)` — async generator yielding raw SDK events from `client.messages.stream(...)`
+   - `async def stream_chat(system: str, messages: list, tools: list)` — async context manager yielding raw SDK stream from `client.messages.stream(...)`
+
+2. `backend/config.py` — added settings:
+   - `aws_region: str = "us-east-1"`
+   - `bedrock_vision_model: str = "anthropic.claude-sonnet-4-6"`
+   - `bedrock_chat_model: str = "anthropic.claude-sonnet-4-6"`
+
+3. `pyproject.toml` — changed `anthropic>=0.40` → `anthropic[bedrock]>=0.40`
 
 ### Pitfalls
 
-- **Bedrock vs direct API:** use direct API for iteration speed. Swap to `AsyncAnthropicBedrock` in Phase 11 — it's a 2-line change if the call site is narrow.
+- **AWS credentials** must be configured before running. Set `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` in env or configure `~/.aws/credentials`. No `ANTHROPIC_API_KEY` needed.
+- **Bedrock model IDs** differ from direct API IDs. Default: `anthropic.claude-sonnet-4-6`. Override via `BEDROCK_VISION_MODEL` / `BEDROCK_CHAT_MODEL` env vars if needed.
 - **Vision input format** must be:
   ```python
   content = [
@@ -421,7 +429,7 @@ Do in this order, stop when out of time. Each is ~1–2h.
 |---|---|---|
 | 11.1 DynamoDB | Implement `dynamo_store.py` against `Storage` Protocol; set `STORAGE_BACKEND=dynamo` | All routes, agent loop, tools |
 | 11.2 S3 + presigned upload | Replace `POST /onboard/upload-payslip` with `/upload-url` + direct S3 PUT; backend reads from S3 | Extractor logic |
-| 11.3 Bedrock | Swap `AsyncAnthropic` → `AsyncAnthropicBedrock` in `anthropic_client.py`; pin Bedrock model ids; verify eu-central-1 availability | Everything else |
+| ~~11.3 Bedrock~~ | ~~Done in Phase 2.~~ `AsyncAnthropicBedrock` is the default client. | — |
 | 11.4 Cognito | Replace `Bearer demo` shortcut with `python-jose` + Cognito JWKS | Everything else |
 | 11.5 Deploy | Containerize, push to ECR, App Runner | All of the above |
 
