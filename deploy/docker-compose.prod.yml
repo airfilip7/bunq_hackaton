@@ -7,6 +7,9 @@ services:
     environment:
       - SQLITE_PATH=/data/bunq_nest.db
       - AWS_DEFAULT_REGION=${AWS_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN:-}
       - BUNQ_API_KEY=${BUNQ_API_KEY:-}
       - BUNQ_MODE=${BUNQ_MODE:-sandbox}
       - BUNQ_BASE_URL=${BUNQ_BASE_URL:-https://public-api.sandbox.bunq.com/v1}
