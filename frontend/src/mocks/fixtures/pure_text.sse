@@ -1,0 +1,20 @@
+event: delta
+data: {"text": "Hi Tim! "}
+
+event: delta
+data: {"text": "Based on your profile, you currently have "}
+
+event: delta
+data: {"text": "€34,000 saved toward your €55,000 deposit target. "}
+
+event: delta
+data: {"text": "That leaves a gap of €21,000. "}
+
+event: delta
+data: {"text": "At your current savings rate of €1,450/month, "}
+
+event: delta
+data: {"text": "you're on track to reach your goal in about 14 months."}
+
+event: done
+data: {"reason": "complete"}

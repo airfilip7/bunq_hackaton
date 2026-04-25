@@ -1,0 +1,23 @@
+event: delta
+data: {"text": "Let me check your recent transactions to give you an up-to-date picture."}
+
+event: tool_call
+data: {"tool_use_id": "tu_read_01", "name": "get_bunq_transactions", "params": {"window_days": 180}, "kind": "read"}
+
+event: tool_result
+data: {"tool_use_id": "tu_read_01", "ok": true, "summary": "180 days, 412 transactions"}
+
+event: delta
+data: {"text": " Looking at the last 6 months, "}
+
+event: delta
+data: {"text": "your average net savings rate is €1,450/month. "}
+
+event: delta
+data: {"text": "Your biggest variable costs are dining out (€340/mo avg) and subscriptions (€89/mo). "}
+
+event: delta
+data: {"text": "Per Nibud norms, your mortgage headroom range is €285,000 – €320,000."}
+
+event: done
+data: {"reason": "complete"}

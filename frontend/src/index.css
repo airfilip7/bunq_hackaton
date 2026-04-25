@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+@theme {
+  /* bunq brand */
+  --color-bunq-teal:   #1ec8c8;
+  --color-bunq-yellow: #ffd72e;
+
+  /* dark surface scale */
+  --color-surface-0: #0f1117;   /* page background */
+  --color-surface-1: #181c24;   /* card / panel */
+  --color-surface-2: #21262f;   /* input / hover */
+  --color-surface-3: #2c3340;   /* border */
+
+  /* text */
+  --color-text-primary:   #f0f2f5;
+  --color-text-secondary: #8b93a1;
+  --color-text-disabled:  #4a5260;
+
+  /* semantic */
+  --color-approval-border: var(--color-bunq-yellow);
+  --color-error:           #f87171;
+}
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html { color-scheme: dark; }
+
+  body {
+    @apply bg-surface-0 text-text-primary antialiased;
+    font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  #root { @apply min-h-svh; }
+}

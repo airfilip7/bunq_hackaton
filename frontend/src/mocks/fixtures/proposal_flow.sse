@@ -1,0 +1,14 @@
+event: delta
+data: {"text": "Your Buffer bucket has stayed above target for 3 months. "}
+
+event: delta
+data: {"text": "Moving €200 from Buffer to House would shave about 3 weeks off your timeline. "}
+
+event: delta
+data: {"text": "Want me to set that up?"}
+
+event: tool_proposal
+data: {"tool_use_id": "tu_write_01", "name": "propose_move_money", "params": {"from_bucket_id": "bkt_001", "from_bucket_name": "Buffer", "to_bucket_id": "bkt_002", "to_bucket_name": "House", "amount_eur": 200, "reason": "Buffer has been above target for 3 months"}, "summary": "Move €200 from Buffer → House", "rationale": "Your Buffer bucket has stayed above its €1,500 target for 3 months. This move shaves ~3 weeks off your deposit timeline.", "risk_level": "low"}
+
+event: done
+data: {"reason": "awaiting_approval"}
