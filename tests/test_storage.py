@@ -1,6 +1,6 @@
 import time
 
-from backend.models import BunqToken, PendingTool, Profile, Payslip, Session, Turn
+from backend.models import BunqToken, PendingTool, Profile, Payslip, Turn
 
 
 # ── Profiles ──────────────────────────────────────────────────────────────────
@@ -57,7 +57,7 @@ def test_create_and_get_session(store):
 
 
 def test_latest_session_returns_most_recent(store):
-    s1 = store.create_session("u1")
+    store.create_session("u1")
     s2 = store.create_session("u1")
 
     latest = store.get_latest_session("u1")
