@@ -3,9 +3,9 @@ import { postTurn } from '@/api/chat'
 import type { SseEvent, TurnRequest } from '@/api/types'
 import { useChatStore } from './chatStore'
 
-// Parses a single SSE block (the text between two \n\n separators) into an event.
+// Parses a single SSE block after normalizing CRLF to LF line endings.
 function parseSseBlock(block: string): SseEvent | null {
-  const lines = block.split('\n')
+  const lines = block.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
   let event = ''
   let data  = ''
   for (const line of lines) {
@@ -36,8 +36,18 @@ export function useChatStream() {
     const assistantMsgId = crypto.randomUUID()
     store.startAssistantMessage(assistantMsgId)
 
+    let streamFinalized = false
+
+    function finalizeOnce(state: 'idle' | 'error' | 'awaiting_approval', errorMsg?: string) {
+      if (streamFinalized) return
+      streamFinalized = true
+      if (errorMsg) store.setError(errorMsg)
+      store.setStreamState(state)
+      store.finaliseAssistantMessage(assistantMsgId)
+    }
+
     try {
-      const res = await postTurn(sessionId, body)
+      const res = await postTurn(sessionId, body, abort.signal)
       if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
 
       const reader  = res.body.getReader()
@@ -48,6 +58,7 @@ export function useChatStream() {
         const { value, done } = await reader.read()
         if (done) break
         buffer += decoder.decode(value, { stream: true })
+        buffer = buffer.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
 
         let idx: number
         while ((idx = buffer.indexOf('\n\n')) !== -1) {
@@ -55,18 +66,23 @@ export function useChatStream() {
           buffer = buffer.slice(idx + 2)
           const ev = parseSseBlock(block)
           if (!ev) continue
-          handleEvent(ev, assistantMsgId)
+          handleEvent(ev, assistantMsgId, finalizeOnce)
         }
       }
+
+      // Stream closed without a done/error event — recover from frozen state.
+      finalizeOnce('idle')
     } catch (err) {
       if ((err as Error).name === 'AbortError') return
-      store.setError('Connection lost. Tap to retry.')
-      store.setStreamState('error')
-      store.finaliseAssistantMessage(assistantMsgId)
+      finalizeOnce('error', 'Connection lost. Tap to retry.')
     }
   }
 
-  function handleEvent(ev: SseEvent, assistantMsgId: string) {
+  function handleEvent(
+    ev: SseEvent,
+    assistantMsgId: string,
+    finalizeOnce: (state: 'idle' | 'error' | 'awaiting_approval', errorMsg?: string) => void,
+  ) {
     switch (ev.event) {
       case 'delta':
         store.appendDelta(assistantMsgId, ev.data.text)
@@ -95,16 +111,11 @@ export function useChatStream() {
         break
 
       case 'done':
-        store.finaliseAssistantMessage(assistantMsgId)
-        store.setStreamState(
-          ev.data.reason === 'awaiting_approval' ? 'awaiting_approval' : 'idle',
-        )
+        finalizeOnce(ev.data.reason === 'awaiting_approval' ? 'awaiting_approval' : 'idle')
         break
 
       case 'error':
-        store.setError(ev.data.message)
-        store.setStreamState(ev.data.retryable ? 'error' : 'idle')
-        store.finaliseAssistantMessage(assistantMsgId)
+        finalizeOnce('error', ev.data.message)
         break
     }
   }

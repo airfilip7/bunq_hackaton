@@ -30,6 +30,7 @@ export function ChatView() {
     appendUserMessage,
     setPendingTool,
     setStreamState,
+    setError,
     loadSession,
   } = useChatStore()
 
@@ -196,7 +197,7 @@ export function ChatView() {
       )}
 
       {/* Error banner */}
-      {errorMessage && streamState === 'error' && (
+      {errorMessage && streamState !== 'streaming' && (
         <div style={{
           margin: '0 16px 8px',
           padding: '10px 12px',
@@ -208,7 +209,10 @@ export function ChatView() {
         }}>
           <span>{errorMessage}</span>
           <button style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', textDecoration: 'underline', fontSize: 13 }}
-            onClick={() => setStreamState('idle')}>dismiss</button>
+            onClick={() => {
+              setError(null)
+              setStreamState('idle')
+            }}>dismiss</button>
         </div>
       )}
 

@@ -1,11 +1,12 @@
 import { apiFetch } from './client'
 import type { TurnRequest, SessionDetail, Message, ToolName } from './types'
 
-export async function postTurn(sessionId: string, body: TurnRequest): Promise<Response> {
+export async function postTurn(sessionId: string, body: TurnRequest, signal?: AbortSignal): Promise<Response> {
   return apiFetch(`/chat/sessions/${sessionId}/turns`, {
     method: 'POST',
     body: JSON.stringify(body),
     headers: { Accept: 'text/event-stream' },
+    signal,
   })
 }
 

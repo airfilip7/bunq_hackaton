@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -178,7 +179,7 @@ async def run_turn(
 
         pending = storage.get_pending_tool(session_id, tool_use_id)
         if pending is None:
-            await sse_emit("error", {"message": "No matching pending action."})
+            await sse_emit("error", {"message": "No matching pending action.", "retryable": False})
             return
 
         if decision == "approve":
@@ -187,7 +188,7 @@ async def run_turn(
                     pending.tool_name, pending.params, inbound.get("overrides") or {}
                 )
             except ValueError as exc:
-                await sse_emit("error", {"message": str(exc)})
+                await sse_emit("error", {"message": str(exc), "retryable": False})
                 storage.clear_pending_tool(session_id, pending.tool_use_id)
                 return
 
@@ -241,7 +242,7 @@ async def run_turn(
         call_start = time.time()
 
         try:
-            async with stream_chat(system, messages, tools) as stream:
+            async with asyncio.timeout(120), stream_chat(system, messages, tools) as stream:
                 async for event in stream:
                     if event.type == "content_block_start":
                         block = event.content_block
@@ -271,6 +272,12 @@ async def run_turn(
                                 "input": parsed_input,
                             })
 
+        except asyncio.TimeoutError:
+            call_ms = int((time.time() - call_start) * 1000)
+            logger.warning("model_call_timeout session=%s round=%d latency_ms=%d", session_id, _round, call_ms)
+            await sse_emit("error", {"message": "Agent timed out — please try again.", "retryable": True})
+            return
+
         except Exception as exc:
             call_ms = int((time.time() - call_start) * 1000)
             logger.info(
@@ -285,7 +292,7 @@ async def run_turn(
                     content=text_buffer,
                 )
                 storage.append_turn(session_id, err_turn)
-            await sse_emit("error", {"message": str(exc)})
+            await sse_emit("error", {"message": str(exc), "retryable": True})
             return
 
         call_ms = int((time.time() - call_start) * 1000)
