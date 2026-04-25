@@ -219,6 +219,140 @@ GSI1 (`user_id` → `last_active_at`) lets us list sessions per user.
 
 ---
 
+## 11. Frontend–backend contracts (frozen at hour 0)
+
+These TypeScript types are the **single source of truth** for every byte that crosses the frontend/backend boundary. They live in `frontend/src/api/types.ts`. A and B must not change a field name, add a required field, or drop a field without updating this section first — doing so silently breaks the frontend parser or the mock fixtures.
+
+### 11.1 SSE events — backend → frontend (A owns)
+
+Every `event:` line the backend emits maps to exactly one of these. The frontend parser rejects anything not in this union.
+
+```ts
+type SseEvent =
+  | { event: 'delta';         data: { text: string } }
+  | { event: 'tool_call';     data: { tool_use_id: string; name: ToolName;
+                                       params: object; kind: 'read' } }
+  | { event: 'tool_result';   data: { tool_use_id: string; ok: boolean;
+                                       summary?: string; error?: string } }
+  | { event: 'tool_proposal'; data: ToolProposal }
+  | { event: 'done';          data: { reason: 'complete' | 'awaiting_approval' } }
+  | { event: 'error';         data: { message: string; retryable: boolean } };
+
+type ToolName =
+  | 'get_bunq_transactions'
+  | 'get_bunq_buckets'
+  | 'get_funda_property'
+  | 'compute_projection'
+  | 'propose_move_money'
+  | 'propose_create_bucket'
+  | 'propose_handoff_advisor';
+
+type ToolProposal = {
+  tool_use_id: string;
+  name: 'propose_move_money' | 'propose_create_bucket' | 'propose_handoff_advisor';
+  params: ProposeMoveMoneyParams | ProposeCreateBucketParams | {};
+  summary: string;      // human-readable one-liner — rendered in the approval card
+  rationale: string;    // 1–2 sentence explanation shown below the summary
+  risk_level: 'low' | 'medium' | 'high';
+};
+
+type ProposeMoveMoneyParams = {
+  from_bucket_id: string;
+  from_bucket_name: string;   // ← A must include this; card cannot render without it
+  to_bucket_id: string;
+  to_bucket_name: string;     // ← same
+  amount_eur: number;
+  reason: string;
+};
+
+type ProposeCreateBucketParams = {
+  name: string;
+  target_eur?: number;
+  reason: string;
+};
+```
+
+**Note on bucket names:** the approval card renders `from_bucket_name → to_bucket_name` directly. A must embed the human-readable name in the proposal params — the frontend will not make a secondary fetch to resolve bucket IDs.
+
+### 11.2 Turn request bodies — frontend → backend (A owns)
+
+```ts
+type TurnRequest =
+  | { type: 'user_message';
+      content: string;
+      idempotency_key: string; }        // UUIDv4, generated client-side; dedupe window = 60s
+  | { type: 'tool_approval';
+      tool_use_id: string;              // from ToolProposal.tool_use_id
+      decision: 'approve' | 'deny';
+      overrides?: { amount_eur?: number };  // editable fields only; currently amount_eur for propose_move_money
+      feedback?: string;                // optional, shown to user on deny
+      idempotency_key: string; };
+```
+
+**Note on editable fields:** the only field the frontend exposes for user editing in the approval card is `amount_eur` on `propose_move_money`. If A adds editable fields to other proposal types, update `overrides` here and in `ApprovalCard.tsx`.
+
+### 11.3 Onboarding endpoints — frontend → backend (B owns)
+
+**Status: shapes proposed by C, need B's sign-off at hour-0 huddle.**
+
+```ts
+// POST /onboard/upload-url  →  UploadUrlResponse
+type UploadUrlResponse = {
+  upload_url: string;       // presigned S3 PUT, expires in 5 min
+  s3_key: string;           // pass back verbatim in OnboardRequest
+  expires_at: number;       // epoch ms — frontend shows a warning if upload is slow
+  required_headers: Record<string, string>;  // e.g. { 'Content-Type': 'image/jpeg' }
+};
+
+// POST /onboard  →  OnboardResponse
+type OnboardRequest = {
+  s3_key: string;
+  funda_url: string;
+  funda_price_override_eur?: number;  // manual fallback if LLM extraction fails
+  bunq_oauth_state: string;           // opaque token returned from /bunq/oauth/callback
+};
+
+type OnboardResponse = {
+  session_id: string;       // first session, ready to stream immediately
+  profile: ProfileSnapshot; // pre-rendered numbers for the populating animation
+};
+
+type ProfileSnapshot = {
+  payslip: {
+    gross_monthly_eur: number;
+    net_monthly_eur: number;
+    confidence: 'high' | 'medium' | 'low';
+  };
+  target: {
+    price_eur: number;
+    address: string;
+  };
+  projection: {
+    savings_now_eur: number;
+    deposit_target_eur: number;
+    gap_eur: number;
+    monthly_savings_eur: number;
+    months_to_goal: number;
+    headroom_range_eur: [number, number];
+  };
+};
+```
+
+**Note on `ProfileSnapshot`:** the frontend animates these numbers immediately on `OnboardResponse` receipt, before the agent's first SSE stream arrives. B must populate all fields; `null` values will break the animation.
+
+### 11.4 Open items (resolve at hour-0 huddle, ≤30 min)
+
+| # | Owner | Question | Blocks |
+|---|---|---|---|
+| 1 | A | Confirm `from_bucket_name` / `to_bucket_name` are included in `propose_move_money` params. | `ApprovalCard.tsx` |
+| 2 | B | Sign off on `UploadUrlResponse` and `OnboardRequest` / `OnboardResponse` shapes above. | `PayslipUpload.tsx`, `AuthCallbackRoute.tsx` |
+| 3 | A | Does the bootstrap session stream start automatically after `/onboard`, or does the frontend fire an explicit `POST /turns`? | `ChatRoute.tsx` bootstrap logic |
+| 4 | B | Confirm both `localhost:5173` and the Vercel production URL are registered as `redirect_uri` for the bunq OAuth app. | `BunqConnect.tsx` |
+| 5 | A | Pin the editable-fields allowlist for `overrides` — is `amount_eur` the only one for MVP? | `ApprovalCard.tsx` edit mode |
+| 6 | A + B | Who sets `risk_level` on a proposal — the agent or the runner deterministically? Doesn't change the frontend but affects whether `high` can appear in production. | `ApprovalCard.tsx` risk badge |
+
+---
+
 ## See also
 
 - `agent-loop.md` — the turn lifecycle, streaming protocol, ask-user vs tool-approval patterns.
