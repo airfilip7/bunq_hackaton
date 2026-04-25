@@ -196,6 +196,12 @@ async def run_turn(
         tool_input_buffers: dict[int, list[str]] = {}
         tool_blocks: dict[int, dict] = {}
 
+        logger.info(
+            "model_call_start session=%s round=%d messages=%d tools=%d",
+            session_id, _round, len(messages), len(tools),
+        )
+        call_start = time.time()
+
         try:
             async with stream_chat(system, messages, tools) as stream:
                 async for event in stream:
@@ -228,6 +234,11 @@ async def run_turn(
                             })
 
         except Exception as exc:
+            call_ms = int((time.time() - call_start) * 1000)
+            logger.info(
+                "model_call_error session=%s round=%d latency_ms=%d error=%s",
+                session_id, _round, call_ms, str(exc)[:200],
+            )
             logger.exception("run_turn: stream error in round %d", _round)
             if text_buffer:
                 err_turn = _make_turn(
@@ -238,6 +249,12 @@ async def run_turn(
                 storage.append_turn(session_id, err_turn)
             await sse_emit("error", {"message": str(exc)})
             return
+
+        call_ms = int((time.time() - call_start) * 1000)
+        logger.info(
+            "model_call_end session=%s round=%d latency_ms=%d text_len=%d tool_uses=%d",
+            session_id, _round, call_ms, len(text_buffer), len(tool_uses_in_this_pass),
+        )
 
         # ── No tool uses: done ───────────────────────────────────────────────
         if not tool_uses_in_this_pass:
@@ -266,12 +283,18 @@ async def run_turn(
             logger.info("run_turn: executing read tool %s", tu["name"])
             await sse_emit("tool_call", {"name": tu["name"], "input": tu["input"]})
 
+            tool_t0 = time.time()
             try:
                 result = await execute_read_tool(tu["name"], tu["input"], ctx)
             except Exception as exc:
                 result = {"error": str(exc)}
 
+            tool_ms = int((time.time() - tool_t0) * 1000)
             summary = json.dumps(result)[:200]
+            logger.info(
+                "read_tool_done session=%s tool=%s latency_ms=%d result_size=%d",
+                session_id, tu["name"], tool_ms, len(summary),
+            )
             await sse_emit(
                 "tool_result",
                 {"tool_use_id": tu["id"], "name": tu["name"], "summary": summary},
@@ -295,6 +318,10 @@ async def run_turn(
         else:
             # Write tool — propose and wait for approval
             logger.info("run_turn: proposing write tool %s", tu["name"])
+            logger.info(
+                "write_tool_proposed session=%s tool=%s params_keys=%s",
+                session_id, tu["name"], ",".join(tu["input"].keys()),
+            )
             pending = PendingTool(
                 tool_use_id=tu["id"],
                 session_id=session_id,
