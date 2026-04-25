@@ -83,7 +83,7 @@ export function OnboardForm() {
     ? 'pending'
     : FUNDA_LISTING_REGEX.test(form.fundaUrl ?? '') ? 'done' : 'active'
 
-  const canSubmit = !!form.s3Key && !!form.fundaUrl
+  const canSubmit = !!form.s3Key && FUNDA_LISTING_REGEX.test(form.fundaUrl ?? '')
 
   async function handleSubmit() {
     if (!canSubmit) return
