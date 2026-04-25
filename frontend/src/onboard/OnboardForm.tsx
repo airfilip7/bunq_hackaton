@@ -29,7 +29,7 @@ export function OnboardForm() {
         funda_url:                form.fundaUrl!,
         funda_price_override_eur: form.fundaPriceOverride,
       })
-      navigate(`/chat?bootstrap=${res.session_id}`)
+      navigate(`/chat?bootstrap=${res.session_id}`, { state: { profile: res.profile } })
     } catch {
       setError('Something went wrong. Please try again.')
       setSubmitting(false)

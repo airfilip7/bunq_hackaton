@@ -5,6 +5,7 @@ import { ApprovalCard } from './ApprovalCard'
 import { Composer } from './Composer'
 import { useChatStore } from './chatStore'
 import { useChatStream } from './useChatStream'
+import { PopulatingDashboard } from '@/onboard/PopulatingDashboard'
 import type { TurnRequest } from '@/api/types'
 
 // Stable UUIDv4 for idempotency — regenerated per message send.
@@ -20,6 +21,7 @@ export function ChatView() {
     pendingTool,
     streamState,
     errorMessage,
+    profile,
     setSession,
     appendUserMessage,
     setPendingTool,
@@ -103,6 +105,11 @@ export function ChatView() {
 
   return (
     <div className="flex flex-col h-screen">
+      {profile && bootstrapSessionId && (
+        <div className="px-4 pt-4 pb-2 border-b border-surface-3">
+          <PopulatingDashboard profile={profile} />
+        </div>
+      )}
       <MessageList messages={messages} />
 
       {/* Approval card sits above the composer */}

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Message, ToolProposal } from '@/api/types'
+import type { Message, ToolProposal, ProfileSnapshot } from '@/api/types'
 
 export type StreamState = 'idle' | 'streaming' | 'awaiting_approval' | 'error'
 
@@ -9,9 +9,11 @@ type ChatStore = {
   pendingTool: ToolProposal | null
   streamState: StreamState
   errorMessage: string | null
+  profile: ProfileSnapshot | null
 
   // actions
   setSession: (id: string) => void
+  setProfile: (profile: ProfileSnapshot) => void
   appendUserMessage: (msg: Message) => void
   startAssistantMessage: (id: string) => void
   appendDelta: (id: string, text: string) => void
@@ -29,12 +31,15 @@ const initialState = {
   pendingTool: null,
   streamState: 'idle' as StreamState,
   errorMessage: null,
+  profile: null,
 }
 
 export const useChatStore = create<ChatStore>((set) => ({
   ...initialState,
 
   setSession: (id) => set({ sessionId: id }),
+
+  setProfile: (profile) => set({ profile }),
 
   appendUserMessage: (msg) =>
     set((s) => ({ messages: [...s.messages, msg] })),

@@ -26,10 +26,7 @@ export function HandoffCTA({ monthsToGoal }: Props) {
   )
 }
 
-// Re-export a wired version that reads directly from the store.
-// Pass monthsToGoal={null} until the profile is loaded.
 export function HandoffCTAConnected() {
-  // TODO: wire to profile.projection.months_to_goal once profile is in store.
-  void useChatStore  // silence unused import lint until wired
-  return <HandoffCTA monthsToGoal={null} />
+  const monthsToGoal = useChatStore((s) => s.profile?.projection.months_to_goal ?? null)
+  return <HandoffCTA monthsToGoal={monthsToGoal} />
 }
