@@ -178,7 +178,7 @@ async def run_turn(
 
         pending = storage.get_pending_tool(session_id, tool_use_id)
         if pending is None:
-            await sse_emit("error", {"message": "No matching pending action."})
+            await sse_emit("error", {"message": "No matching pending action.", "retryable": False})
             return
 
         if decision == "approve":
@@ -187,7 +187,7 @@ async def run_turn(
                     pending.tool_name, pending.params, inbound.get("overrides") or {}
                 )
             except ValueError as exc:
-                await sse_emit("error", {"message": str(exc)})
+                await sse_emit("error", {"message": str(exc), "retryable": False})
                 storage.clear_pending_tool(session_id, pending.tool_use_id)
                 return
 
@@ -285,7 +285,7 @@ async def run_turn(
                     content=text_buffer,
                 )
                 storage.append_turn(session_id, err_turn)
-            await sse_emit("error", {"message": str(exc)})
+            await sse_emit("error", {"message": str(exc), "retryable": True})
             return
 
         call_ms = int((time.time() - call_start) * 1000)
@@ -342,7 +342,7 @@ async def run_turn(
                 "tool_proposal",
                 {
                     "tool_use_id": write_tool["id"],
-                    "tool_name": write_tool["name"],
+                    "name": write_tool["name"],
                     "params": write_tool["input"],
                     "summary": pending.summary,
                     "rationale": pending.rationale,
@@ -355,7 +355,7 @@ async def run_turn(
         # All tools are read-only — execute each one
         for tu in tool_uses_in_this_pass:
             logger.info("run_turn: executing read tool %s", tu["name"])
-            await sse_emit("tool_call", {"name": tu["name"], "input": tu["input"]})
+            await sse_emit("tool_call", {"tool_use_id": tu["id"], "name": tu["name"], "params": tu["input"], "kind": "read"})
 
             tool_t0 = time.time()
             try:
@@ -371,7 +371,7 @@ async def run_turn(
             )
             await sse_emit(
                 "tool_result",
-                {"tool_use_id": tu["id"], "name": tu["name"], "summary": summary},
+                {"tool_use_id": tu["id"], "ok": True, "summary": summary},
             )
 
             result_turn = _make_turn(

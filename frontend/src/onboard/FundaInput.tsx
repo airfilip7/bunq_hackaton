@@ -182,7 +182,7 @@ export function FundaInput({ value, onChange }: Props) {
           <input
             className="input-field"
             type="number"
-            placeholder="Price in \u20AC (e.g. 425000)"
+            placeholder="Price in € (e.g. 425000)"
             value={manualPrice}
             min={MIN_PRICE}
             max={MAX_PRICE}
