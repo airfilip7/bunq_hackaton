@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { TurnRequest, SessionDetail, Message, ToolName } from './types'
+import type { TurnRequest, SessionDetail, Message, ToolName, ProfileSnapshot } from './types'
 
 export async function postTurn(sessionId: string, body: TurnRequest, signal?: AbortSignal): Promise<Response> {
   return apiFetch(`/chat/sessions/${sessionId}/turns`, {
@@ -72,4 +72,19 @@ export async function getSession(sessionId: string): Promise<SessionDetail> {
     messages: turnsToMessages(body.turns),
     pending_tool: null,
   }
+}
+
+export async function updateTarget(
+  fundaUrl: string,
+  priceOverride?: number,
+): Promise<ProfileSnapshot> {
+  const res = await apiFetch('/chat/update-target', {
+    method: 'POST',
+    body: JSON.stringify({
+      funda_url: fundaUrl,
+      ...(priceOverride != null && { funda_price_override_eur: priceOverride }),
+    }),
+  })
+  if (!res.ok) throw new Error(`update-target ${res.status}`)
+  return res.json() as Promise<ProfileSnapshot>
 }

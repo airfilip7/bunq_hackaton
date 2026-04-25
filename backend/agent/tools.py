@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -40,6 +41,22 @@ TOOL_SCHEMAS = [
         "input_schema": {"type": "object", "properties": {}},
     },
     {
+        "name": "update_target_property",
+        "description": (
+            "Update the user's target property by fetching a new Funda listing. "
+            "This persists the change to the user's profile and recalculates projections. "
+            "Use when the user pastes a new Funda URL or asks to change their target property."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "Funda listing URL"},
+                "price_override_eur": {"type": "number", "description": "Manual price override if extraction fails"},
+            },
+            "required": ["url"],
+        },
+    },
+    {
         "name": "propose_move_money",
         "description": "Propose moving money between two of the user's bunq buckets. WRITE ACTION — requires user approval before execution.",
         "input_schema": {
@@ -68,7 +85,7 @@ TOOL_SCHEMAS = [
     },
 ]
 
-READ_TOOLS = {"get_bunq_transactions", "get_bunq_buckets", "get_funda_property", "compute_projection"}
+READ_TOOLS = {"get_bunq_transactions", "get_bunq_buckets", "get_funda_property", "compute_projection", "update_target_property"}
 
 KNOWN_TOOLS = {t["name"] for t in TOOL_SCHEMAS}
 
@@ -135,4 +152,52 @@ async def execute_read_tool(name: str, params: dict, ctx: ToolContext) -> dict:
         projection = _compute_projection(profile, transactions, buckets)
         return projection.model_dump()
 
+    if name == "update_target_property":
+        return await _update_target_property(params, ctx)
+
     raise ValueError(f"Unknown read tool: {name}")
+
+
+async def _update_target_property(params: dict, ctx: ToolContext) -> dict:
+    """Parse a new Funda listing, update the user's profile target, and recalculate projections."""
+    from backend.funda import parse_funda  # noqa: PLC0415
+    from backend.models import Target  # noqa: PLC0415
+
+    profile = ctx.storage.get_profile(ctx.user_id)
+    if profile is None:
+        return {"error": "No profile found for user"}
+
+    url = params["url"]
+    funda_data = await parse_funda(url)
+
+    price_eur = params.get("price_override_eur") or funda_data.get("price_eur")
+    if price_eur is None:
+        return {"error": "Could not determine property price. Ask the user for a manual price."}
+
+    now_ms = int(time.time() * 1000)
+    profile.target = Target(
+        funda_url=url,
+        price_eur=float(price_eur),
+        address=funda_data.get("address") or "",
+        type=funda_data.get("type"),
+        size_m2=funda_data.get("size_m2"),
+        year_built=funda_data.get("year_built"),
+        fetched_at=now_ms,
+    )
+
+    raw = await ctx.bunq_client.get_transactions()
+    transactions = raw.get("transactions", [])
+    buckets = await ctx.bunq_client.get_buckets()
+    projection = _compute_projection(profile, transactions, buckets)
+    profile.projection = projection
+    ctx.storage.upsert_profile(profile)
+
+    return {
+        "updated": True,
+        "target": {
+            "funda_url": profile.target.funda_url,
+            "price_eur": profile.target.price_eur,
+            "address": profile.target.address,
+        },
+        "projection": projection.model_dump(),
+    }

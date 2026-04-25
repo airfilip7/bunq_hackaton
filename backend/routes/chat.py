@@ -2,13 +2,18 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse, ServerSentEvent
 
+import backend.funda as funda_module
 from backend.agent.runner import run_turn
 from backend.deps import get_bunq_client, get_current_user_id, get_storage
+from backend.funda import FundaFetchError
+from backend.models import Target
+from backend.projection import compute_projection
 
 router = APIRouter()
 
@@ -20,6 +25,11 @@ class TurnRequest(BaseModel):
     decision: str | None = None  # "approve" | "deny"
     overrides: dict | None = None
     feedback: str | None = None
+
+
+class UpdateTargetRequest(BaseModel):
+    funda_url: str
+    funda_price_override_eur: float | None = None
 
 
 @router.get("/sessions")
@@ -101,3 +111,62 @@ async def create_turn(
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-store"},
         ping=15,
     )
+
+
+@router.post("/update-target")
+async def update_target(
+    body: UpdateTargetRequest,
+    user_id: str = Depends(get_current_user_id),
+    storage=Depends(get_storage),
+    bunq_client=Depends(get_bunq_client),
+):
+    profile = storage.get_profile(user_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Profile not found. Complete onboarding first.")
+
+    try:
+        funda_data = await funda_module.parse_funda(body.funda_url)
+    except FundaFetchError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    price_eur = body.funda_price_override_eur or funda_data.get("price_eur")
+    if price_eur is None:
+        raise HTTPException(status_code=422, detail="Could not determine property price — provide funda_price_override_eur")
+
+    now_ms = int(time.time() * 1000)
+    profile.target = Target(
+        funda_url=body.funda_url,
+        price_eur=float(price_eur),
+        address=funda_data.get("address") or "",
+        type=funda_data.get("type"),
+        size_m2=funda_data.get("size_m2"),
+        year_built=funda_data.get("year_built"),
+        fetched_at=now_ms,
+    )
+
+    tx_result, buckets = await asyncio.gather(
+        bunq_client.get_transactions(), bunq_client.get_buckets()
+    )
+    projection = compute_projection(profile, tx_result.get("transactions", []), buckets)
+    profile.projection = projection
+    storage.upsert_profile(profile)
+
+    return {
+        "payslip": {
+            "gross_monthly_eur": profile.payslip.gross_monthly_eur,
+            "net_monthly_eur": profile.payslip.net_monthly_eur,
+            "confidence": profile.payslip.confidence,
+        } if profile.payslip else None,
+        "target": {
+            "price_eur": profile.target.price_eur,
+            "address": profile.target.address or "",
+        },
+        "projection": {
+            "savings_now_eur": projection.savings_now_eur,
+            "deposit_target_eur": projection.deposit_target_eur,
+            "gap_eur": projection.gap_eur,
+            "monthly_savings_eur": projection.monthly_savings_eur,
+            "months_to_goal": projection.months_to_goal,
+            "headroom_range_eur": list(projection.headroom_range_eur),
+        },
+    }

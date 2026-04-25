@@ -6,6 +6,8 @@ import asyncio
 import base64
 import copy
 import json
+import logging
+import time
 from datetime import date
 from pathlib import Path
 from typing import Protocol
@@ -14,6 +16,8 @@ from uuid import uuid4
 import httpx
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
+
+logger = logging.getLogger(__name__)
 
 
 class BunqClient(Protocol):
@@ -130,13 +134,17 @@ class RealBunqClient:
                 result[key] = value
         return result
 
-    def _check_response(self, resp: httpx.Response) -> dict:
+    def _check_response(self, resp: httpx.Response, *, label: str = "") -> dict:
         if resp.status_code >= 400:
             try:
                 err = resp.json()
                 msg = err.get("Error", [{}])[0].get("error_description", resp.text)
             except Exception:
                 msg = resp.text
+            logger.error(
+                "bunq_api_error label=%s status=%d body=%s",
+                label, resp.status_code, msg[:500],
+            )
             raise ValueError(f"bunq API error {resp.status_code}: {msg}")
         return resp.json()
 
@@ -148,36 +156,42 @@ class RealBunqClient:
             if self._session_token:
                 return
 
-            print("bunq: starting installation...")
+            logger.info("bunq_auth step=installation action=start")
             # Step 1 — Installation (no auth, no signature needed)
+            t0 = time.time()
             install_body = json.dumps({"client_public_key": self._public_key_pem}).encode()
             resp = await self._http.post(
                 f"{self._base_url}/installation",
                 content=install_body,
                 headers=self._headers(token=None),
             )
-            data = self._unwrap(self._check_response(resp))
+            ms = int((time.time() - t0) * 1000)
+            data = self._unwrap(self._check_response(resp, label="installation"))
             installation_token = data["Token"]["token"]
-            print("bunq: installation token obtained")
+            logger.info("bunq_auth step=installation action=done status=%d latency_ms=%d", resp.status_code, ms)
 
             # Step 2 — Device Server (signed with our private key)
+            t0 = time.time()
             device_body = json.dumps({"description": "bunq Nest backend", "secret": self._api_key}).encode()
             resp = await self._http.post(
                 f"{self._base_url}/device-server",
                 content=device_body,
                 headers=self._headers(token=installation_token, body=device_body),
             )
-            self._check_response(resp)
-            print("bunq: device registered")
+            ms = int((time.time() - t0) * 1000)
+            self._check_response(resp, label="device-server")
+            logger.info("bunq_auth step=device_server action=done status=%d latency_ms=%d", resp.status_code, ms)
 
             # Step 3 — Session Server (signed with our private key)
+            t0 = time.time()
             session_body = json.dumps({"secret": self._api_key}).encode()
             resp = await self._http.post(
                 f"{self._base_url}/session-server",
                 content=session_body,
                 headers=self._headers(token=installation_token, body=session_body),
             )
-            data = self._unwrap(self._check_response(resp))
+            ms = int((time.time() - t0) * 1000)
+            data = self._unwrap(self._check_response(resp, label="session-server"))
             self._session_token = data["Token"]["token"]
 
             # Extract user ID from whichever user type is present
@@ -186,24 +200,38 @@ class RealBunqClient:
                     self._bunq_user_id = data[user_type]["id"]
                     break
 
-            print(f"bunq: session established, user_id={self._bunq_user_id}")
+            logger.info(
+                "bunq_auth step=session_server action=done status=%d latency_ms=%d user_id=%s",
+                resp.status_code, ms, self._bunq_user_id,
+            )
 
     async def _get(self, path: str) -> dict:
+        logger.info("bunq_request method=GET path=%s", path)
+        t0 = time.time()
         resp = await self._http.get(
             f"{self._base_url}{path}",
             headers=self._headers(token=self._session_token),
         )
         if resp.status_code == 401:
-            print("bunq: session expired, re-authenticating...")
+            logger.warning("bunq_session_expired method=GET path=%s, re-authenticating", path)
             self._session_token = None
             await self._ensure_session()
+            t0 = time.time()
             resp = await self._http.get(
                 f"{self._base_url}{path}",
                 headers=self._headers(token=self._session_token),
             )
-        return self._check_response(resp)
+        ms = int((time.time() - t0) * 1000)
+        body = self._check_response(resp, label=f"GET {path}")
+        logger.info(
+            "bunq_response method=GET path=%s status=%d latency_ms=%d body=%s",
+            path, resp.status_code, ms, json.dumps(body)[:500],
+        )
+        return body
 
     async def _post(self, path: str, body_dict: dict) -> dict:
+        logger.info("bunq_request method=POST path=%s", path)
+        t0 = time.time()
         body_bytes = json.dumps(body_dict).encode()
         resp = await self._http.post(
             f"{self._base_url}{path}",
@@ -211,15 +239,22 @@ class RealBunqClient:
             headers=self._headers(token=self._session_token, body=body_bytes),
         )
         if resp.status_code == 401:
-            print("bunq: session expired, re-authenticating...")
+            logger.warning("bunq_session_expired method=POST path=%s, re-authenticating", path)
             self._session_token = None
             await self._ensure_session()
+            t0 = time.time()
             resp = await self._http.post(
                 f"{self._base_url}{path}",
                 content=body_bytes,
                 headers=self._headers(token=self._session_token, body=body_bytes),
             )
-        return self._check_response(resp)
+        ms = int((time.time() - t0) * 1000)
+        body = self._check_response(resp, label=f"POST {path}")
+        logger.info(
+            "bunq_response method=POST path=%s status=%d latency_ms=%d body=%s",
+            path, resp.status_code, ms, json.dumps(body)[:500],
+        )
+        return body
 
     async def get_transactions(self, monetary_account_id: str | None = None) -> dict:
         await self._ensure_session()
@@ -239,6 +274,7 @@ class RealBunqClient:
             )
 
         if account is None:
+            logger.info("bunq_get_transactions account_id=%s result=no_account", monetary_account_id)
             return {"monetary_account_id": monetary_account_id, "balance_eur": 0.0, "transactions": []}
 
         account_id = account["id"]
@@ -261,6 +297,10 @@ class RealBunqClient:
             for p in payments
         ]
 
+        logger.info(
+            "bunq_get_transactions account_id=%s balance_eur=%.2f tx_count=%d",
+            account_id, balance, len(transactions),
+        )
         return {
             "monetary_account_id": str(account_id),
             "balance_eur": balance,
@@ -294,11 +334,13 @@ class RealBunqClient:
                 "color": "teal",
             })
 
+        logger.info("bunq_get_buckets bucket_count=%d", len(buckets))
         return buckets
 
     async def move_money(self, from_id: str, to_id: str, amount_eur: float) -> str:
         await self._ensure_session()
         uid = self._bunq_user_id
+        logger.info("bunq_move_money from=%s to=%s amount_eur=%.2f", from_id, to_id, amount_eur)
 
         # Get destination account details to find its IBAN
         account_resp = await self._get(f"/user/{uid}/monetary-account/{to_id}")
@@ -324,16 +366,19 @@ class RealBunqClient:
         resp = await self._post(f"/user/{uid}/monetary-account/{from_id}/payment", body)
         data = self._unwrap(resp)
         payment_id = data["Id"]["id"]
+        logger.info("bunq_move_money result=ok payment_id=%s", payment_id)
         return f"exec_{payment_id}"
 
     async def create_bucket(self, name: str, goal_eur: float) -> dict:
         await self._ensure_session()
         uid = self._bunq_user_id
+        logger.info("bunq_create_bucket name=%s goal_eur=%.2f", name, goal_eur)
 
         body = {"currency": "EUR", "description": name}
         resp = await self._post(f"/user/{uid}/monetary-account-bank", body)
         data = self._unwrap(resp)
         account_id = data["Id"]["id"]
+        logger.info("bunq_create_bucket result=ok account_id=%s", account_id)
 
         return {
             "id": str(account_id),

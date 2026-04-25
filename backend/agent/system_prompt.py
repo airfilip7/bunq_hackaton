@@ -60,10 +60,13 @@ def build_system_prompt(user_id: str, storage) -> str:
     tool_section = (
         "## Tool Usage Rules\n"
         "Read-only tools (get_bunq_transactions, get_bunq_buckets, get_funda_property, "
-        "compute_projection) execute automatically without user confirmation.\n\n"
+        "compute_projection, update_target_property) execute automatically without user confirmation.\n\n"
         "Write tools (propose_move_money, propose_create_bucket) require explicit user approval "
         "before any side effect runs. For any action that changes money, you MUST call the "
-        "appropriate propose_* tool. Do NOT describe the action in prose instead of calling the tool."
+        "appropriate propose_* tool. Do NOT describe the action in prose instead of calling the tool.\n\n"
+        "When the user pastes a Funda URL or asks to look at a different property, call "
+        "update_target_property with the new URL. This will update their profile, recalculate "
+        "projections, and you should then present the updated numbers to the user."
     )
     sections.append(tool_section)
 

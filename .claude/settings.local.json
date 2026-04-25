@@ -9,7 +9,15 @@
       "Bash(docker compose *)",
       "Bash(unzip -o \"Bunq Nest.zip\" -d \"bunq-nest-design\")",
       "Bash(npm run *)",
-      "Bash(npx vite *)"
+      "Bash(npx vite *)",
+      "Bash(python -m pytest tests/test_runner.py tests/test_chat_routes.py -v)",
+      "Bash(pip install *)",
+      "Bash(grep -r \"logging\\\\|logger\\\\|print\" /Users/Filip_1/bunq_hackaton/backend/*.py)",
+      "Bash(python -m py_compile backend/bunq_client.py)",
+      "Bash(python -m py_compile backend/agent/tools.py)",
+      "Bash(python -m py_compile backend/agent/runner.py)",
+      "Bash(python -m py_compile backend/routes/chat.py)",
+      "Bash(python -m py_compile backend/agent/system_prompt.py)"
     ]
   }
 }

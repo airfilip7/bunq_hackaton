@@ -108,6 +108,10 @@ export function useChatStream() {
         store.setPendingTool(ev.data)
         break
 
+      case 'profile_updated':
+        store.setProfile(ev.data)
+        break
+
       case 'done':
         store.finaliseAssistantMessage(assistantMsgId)
         store.setStreamState(

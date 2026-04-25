@@ -7,8 +7,10 @@ import { Composer } from './Composer'
 import { useChatStore } from './chatStore'
 import { useChatStream } from './useChatStream'
 import { HandoffCTAConnected } from '@/shell/HandoffCTA'
-import { getSessions, getSession } from '@/api/chat'
+import { getSessions, getSession, updateTarget } from '@/api/chat'
 import type { TurnRequest } from '@/api/types'
+
+const FUNDA_LISTING_REGEX = /^https:\/\/(www\.)?funda\.nl\/(detail\/)?(koop|huur|nieuwbouw)\//
 
 function newIk() { return crypto.randomUUID() }
 
@@ -46,6 +48,30 @@ const cs = {
 
 function ChatSidebar() {
   const profile = useChatStore((s) => s.profile)
+  const setProfile = useChatStore((s) => s.setProfile)
+  const [editing, setEditing] = useState(false)
+  const [editUrl, setEditUrl] = useState('')
+  const [editLoading, setEditLoading] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+
+  const editUrlValid = FUNDA_LISTING_REGEX.test(editUrl)
+
+  async function handleEditSubmit() {
+    if (!editUrlValid) return
+    setEditLoading(true)
+    setEditError(null)
+    try {
+      const updated = await updateTarget(editUrl)
+      setProfile(updated)
+      setEditing(false)
+      setEditUrl('')
+    } catch (err) {
+      setEditError('Could not update property. Try again.')
+      console.error('[ChatSidebar updateTarget]', err)
+    } finally {
+      setEditLoading(false)
+    }
+  }
 
   return (
     <aside style={cs.sidebar}>
@@ -56,7 +82,53 @@ function ChatSidebar() {
 
       {/* The home */}
       <div>
-        <div style={cs.sectionTitle}>The home</div>
+        <div style={{ ...cs.sectionTitle, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>The home</span>
+          <button
+            onClick={() => { setEditing((v) => !v); setEditError(null) }}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: editing ? 'var(--violet-2)' : 'var(--ink-4)',
+              fontSize: 11, padding: 0, textDecoration: 'underline',
+            }}
+          >
+            {editing ? 'Cancel' : 'Change'}
+          </button>
+        </div>
+
+        {editing && (
+          <div style={{ marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <input
+              type="url"
+              placeholder="Paste new Funda URL..."
+              value={editUrl}
+              onChange={(e) => setEditUrl(e.target.value.trim())}
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                background: 'rgba(255,255,255,0.06)', border: '1px solid var(--line)',
+                borderRadius: 10, padding: '10px 12px', fontSize: 13,
+                color: 'white', outline: 'none', fontFamily: 'inherit',
+              }}
+            />
+            <button
+              onClick={handleEditSubmit}
+              disabled={!editUrlValid || editLoading}
+              style={{
+                padding: '8px 14px', borderRadius: 10, border: 'none', fontSize: 12,
+                fontWeight: 600, cursor: editUrlValid && !editLoading ? 'pointer' : 'not-allowed',
+                background: editUrlValid ? 'var(--violet)' : 'rgba(255,255,255,0.06)',
+                color: editUrlValid ? 'white' : 'var(--ink-4)',
+                opacity: editLoading ? 0.6 : 1,
+              }}
+            >
+              {editLoading ? 'Updating...' : 'Update property'}
+            </button>
+            {editError && (
+              <div style={{ fontSize: 11, color: 'var(--terracotta)' }}>{editError}</div>
+            )}
+          </div>
+        )}
+
         <div style={cs.homeCard}>
           <svg viewBox="0 0 280 100" width="100%" style={{ borderRadius: 8, marginBottom: 10, display: 'block' }}>
             <rect width="280" height="100" fill="#5B21B6"/>
@@ -75,7 +147,6 @@ function ChatSidebar() {
           <div style={{ fontFamily: 'var(--font-serif)', fontSize: 20, lineHeight: 1.1 }}>
             {profile ? `\u20AC ${profile.target.price_eur.toLocaleString('nl-NL')}` : '\u20AC ---'}
           </div>
-          {/* size not in ProfileSnapshot — omit */}
         </div>
       </div>
 

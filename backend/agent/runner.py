@@ -381,6 +381,30 @@ async def run_turn(
                 {"tool_use_id": tu["id"], "ok": True, "summary": summary},
             )
 
+            # If the target property was updated, push the new profile to the frontend
+            if tu["name"] == "update_target_property" and result.get("updated"):
+                profile = storage.get_profile(user_id)
+                if profile and profile.target and profile.projection:
+                    await sse_emit("profile_updated", {
+                        "payslip": {
+                            "gross_monthly_eur": profile.payslip.gross_monthly_eur,
+                            "net_monthly_eur": profile.payslip.net_monthly_eur,
+                            "confidence": profile.payslip.confidence,
+                        } if profile.payslip else None,
+                        "target": {
+                            "price_eur": profile.target.price_eur,
+                            "address": profile.target.address or "",
+                        },
+                        "projection": {
+                            "savings_now_eur": profile.projection.savings_now_eur,
+                            "deposit_target_eur": profile.projection.deposit_target_eur,
+                            "gap_eur": profile.projection.gap_eur,
+                            "monthly_savings_eur": profile.projection.monthly_savings_eur,
+                            "months_to_goal": profile.projection.months_to_goal,
+                            "headroom_range_eur": list(profile.projection.headroom_range_eur),
+                        },
+                    })
+
             result_turn = _make_turn(
                 session_id,
                 kind="tool_result",

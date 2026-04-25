@@ -13,6 +13,7 @@ export type ToolName =
   | 'get_bunq_buckets'
   | 'get_funda_property'
   | 'compute_projection'
+  | 'update_target_property'
   | 'propose_move_money'
   | 'propose_create_bucket'
   | 'propose_handoff_advisor'
@@ -42,12 +43,13 @@ export type ToolProposal = {
 }
 
 export type SseEvent =
-  | { event: 'delta';         data: { text: string } }
-  | { event: 'tool_call';     data: { tool_use_id: string; name: ToolName; params: object; kind: 'read' } }
-  | { event: 'tool_result';   data: { tool_use_id: string; ok: boolean; summary?: string; error?: string } }
-  | { event: 'tool_proposal'; data: ToolProposal }
-  | { event: 'done';          data: { reason: 'complete' | 'awaiting_approval' } }
-  | { event: 'error';         data: { message: string; retryable: boolean } }
+  | { event: 'delta';           data: { text: string } }
+  | { event: 'tool_call';       data: { tool_use_id: string; name: ToolName; params: object; kind: 'read' } }
+  | { event: 'tool_result';     data: { tool_use_id: string; ok: boolean; summary?: string; error?: string } }
+  | { event: 'tool_proposal';   data: ToolProposal }
+  | { event: 'profile_updated'; data: ProfileSnapshot }
+  | { event: 'done';            data: { reason: 'complete' | 'awaiting_approval' } }
+  | { event: 'error';           data: { message: string; retryable: boolean } }
 
 // ---------------------------------------------------------------------------
 // §11.2  Turn request bodies — frontend → backend (A owns)
