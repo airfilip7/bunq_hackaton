@@ -1,0 +1,39 @@
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - SQLITE_PATH=/data/bunq_nest.db
+      - AWS_DEFAULT_REGION=${AWS_REGION:-us-east-1}
+      - BUNQ_API_KEY=${BUNQ_API_KEY:-}
+      - BUNQ_MODE=${BUNQ_MODE:-sandbox}
+      - BUNQ_BASE_URL=${BUNQ_BASE_URL:-https://public-api.sandbox.bunq.com/v1}
+      - FUNDA_MODE=${FUNDA_MODE:-}
+      - DEMO_REPLAY=${DEMO_REPLAY:-0}
+      - BEDROCK_VISION_MODEL=${BEDROCK_VISION_MODEL:-us.anthropic.claude-sonnet-4-6}
+      - BEDROCK_CHAT_MODEL=${BEDROCK_CHAT_MODEL:-us.anthropic.claude-sonnet-4-6}
+    volumes:
+      - db-data:/data
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  nginx:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  db-data:
