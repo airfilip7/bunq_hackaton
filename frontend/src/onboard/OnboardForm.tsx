@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { PayslipUpload } from './PayslipUpload'
 import { FundaInput } from './FundaInput'
 import { submitOnboard } from '@/api/onboard'
+import type { PayslipUploadResult } from '@/api/types'
 
 type FormState = {
-  s3Key?: string
+  payslipResult?: PayslipUploadResult
   fundaUrl?: string
   fundaPriceOverride?: number
 }
@@ -79,19 +80,26 @@ export function OnboardForm() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError]       = useState<string | null>(null)
 
-  const step2State: StepState = !form.s3Key
+  const step2State: StepState = !form.payslipResult
     ? 'pending'
     : FUNDA_LISTING_REGEX.test(form.fundaUrl ?? '') ? 'done' : 'active'
 
-  const canSubmit = !!form.s3Key && FUNDA_LISTING_REGEX.test(form.fundaUrl ?? '')
+  const canSubmit = !!form.payslipResult && FUNDA_LISTING_REGEX.test(form.fundaUrl ?? '')
 
   async function handleSubmit() {
-    if (!canSubmit) return
+    if (!canSubmit || !form.payslipResult) return
     setSubmitting(true)
     setError(null)
     try {
+      const p = form.payslipResult
       const res = await submitOnboard({
-        s3_key:                   form.s3Key!,
+        payslip: {
+          gross_monthly_eur: p.payslip.gross_monthly_eur ?? 0,
+          net_monthly_eur:   p.payslip.net_monthly_eur ?? 0,
+          employer_name:     p.payslip.employer_name,
+          pay_period:        p.payslip.pay_period,
+          confidence:        p.confidence,
+        },
         funda_url:                form.fundaUrl!,
         funda_price_override_eur: form.fundaPriceOverride,
       })
@@ -131,11 +139,11 @@ export function OnboardForm() {
       {/* Steps */}
       <div style={{ flex: 1, padding: '0 24px', overflow: 'auto' }}>
         <StepRow
-          n={1} state={form.s3Key ? 'done' : 'active'}
+          n={1} state={form.payslipResult ? 'done' : 'active'}
           title="Upload your payslip"
           subtitle="One recent payslip is enough. We read income, taxes, and pension contributions."
         >
-          <PayslipUpload onComplete={(s3Key) => setForm((f) => ({ ...f, s3Key }))} />
+          <PayslipUpload onComplete={(payslipResult) => setForm((f) => ({ ...f, payslipResult }))} />
         </StepRow>
 
         <StepRow
@@ -143,7 +151,7 @@ export function OnboardForm() {
           title="Add a Funda listing"
           subtitle="Doesn't need to be the one — just a price point you're aiming for."
         >
-          {form.s3Key && (
+          {form.payslipResult && (
             <FundaInput
               value={form.fundaUrl ?? ''}
               onChange={(fundaUrl, fundaPriceOverride) =>

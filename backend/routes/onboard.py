@@ -113,8 +113,16 @@ async def parse_funda_endpoint(request: ParseFundaRequest):
 # /onboard  (main endpoint)
 # ---------------------------------------------------------------------------
 
+class OnboardPayslipData(BaseModel):
+    gross_monthly_eur: float
+    net_monthly_eur: float
+    employer_name: str | None = None
+    pay_period: str | None = None
+    confidence: Literal["high", "medium", "low"] = "low"
+
+
 class OnboardRequest(BaseModel):
-    s3_key: str
+    payslip: OnboardPayslipData
     funda_url: str
     funda_price_override_eur: float | None = None
 
@@ -155,11 +163,8 @@ async def onboard(
     request: OnboardRequest,
     user_id: str = Depends(get_current_user_id),
 ):
-    # 1. Extract payslip from S3 via Bedrock vision
-    try:
-        payslip_extract = await asyncio.to_thread(payslip_module.extract_and_persist, user_id, request.s3_key)
-    except Exception as exc:
-        raise HTTPException(status_code=422, detail=f"Payslip extraction failed: {exc}") from exc
+    # 1. Use payslip data from the request (already extracted via /upload-payslip)
+    payslip_data = request.payslip
 
     # 2. Parse Funda listing
     try:
@@ -183,12 +188,11 @@ async def onboard(
         user_id=user_id,
         onboarded_at=now_ms,
         payslip=Payslip(
-            gross_monthly_eur=payslip_extract.gross_monthly_eur or 0.0,
-            net_monthly_eur=payslip_extract.net_monthly_eur or 0.0,
-            employer_name=payslip_extract.employer_name,
-            pay_period=payslip_extract.pay_period,
-            confidence=payslip_extract.confidence,
-            source_s3_key=payslip_extract.source_s3_key,
+            gross_monthly_eur=payslip_data.gross_monthly_eur,
+            net_monthly_eur=payslip_data.net_monthly_eur,
+            employer_name=payslip_data.employer_name,
+            pay_period=payslip_data.pay_period,
+            confidence=payslip_data.confidence,
         ),
         target=Target(
             funda_url=request.funda_url,
@@ -228,9 +232,9 @@ async def onboard(
         session_id=session.session_id,
         profile=ProfileSnapshotResponse(
             payslip=PayslipSnapshot(
-                gross_monthly_eur=profile.payslip.gross_monthly_eur or 0.0,
-                net_monthly_eur=profile.payslip.net_monthly_eur or 0.0,
-                confidence=profile.payslip.confidence,
+                gross_monthly_eur=payslip_data.gross_monthly_eur,
+                net_monthly_eur=payslip_data.net_monthly_eur,
+                confidence=payslip_data.confidence,
             ),
             target=TargetSnapshot(
                 price_eur=profile.target.price_eur,

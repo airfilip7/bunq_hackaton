@@ -6,6 +6,10 @@ services:
     env_file: .env
     environment:
       - SQLITE_PATH=/tmp/bunq_nest.db
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=ASIAVPMCBMT57ORGJGC3
+      - AWS_SECRET_ACCESS_KEY=H9dcfTPN7n+KbFEpJhJ1sVFqES2HrE1+8G9c6QrR
+      - AWS_SESSION_TOKEN=IQoJb3JpZ2luX2VjEMb//////////wEaCXVzLWVhc3QtMSJHMEUCIAaq9J8ZMxOCpE3YpgtmP9zA6r2RkLDJe2zDnJ9ny0XSAiEAmyRBGG7BMgUHQVmvYfNr9pyKp/8uv40+4s5zzn8OaekqogIIj///////////ARAAGgwzNzY2MTkyMzA0NTkiDMYxVjscgzL9a0KVbSr2AX9esV2QuOE/k0EDiQeJ6SL3Z5vYtVLk7JwegCsFnWNPOB+R+BRxfzXM2bCQSVhFg5btcARIqPrQffevneIit2Z5Zrkc2dVQlnr8DJEL9AArFpVimeuTz3gS0mpmm2hrr44O90Icbqzisf1xhcZ+Ya3R4590OWxzOT7eVM+FNsp1REL0dM12FwqGQD5CJkYv1bEWRLjrBFgo1tA2t87cuNozeowFt27Aht/k9ZqjCwSdXURzJKz20WdMsY1qauSm8dSB3bbgihn+MhfFqTxmzB/5pDEgumiEoOo2P7EHhAU8DyBf5ZpoMkBVXpPnX6n0wcaJ5D8THDCnqLHPBjqdAY74EOqMMhVPnK/ss7JsYnkFezivFKD08pwmI0E9sABvZP7Ac4fi41Z88gTjUtpBFWJ5MSVMUbZqzxjXCvhwFXxxA4qJRKYxCCE3VORKnKPUTXUkNYZnf1OOlL5/nSlVN504nJCKxQ2ZHFllu9bxHpWzJn7IPor/4W0H6xgjNlrO3fsGVGypZrADk+6M2Ttv6KHxV0j8Kx9eh91frZ4=
     volumes:
       - ./backend:/app/backend
 
@@ -15,5 +19,8 @@ services:
       - "5173:5173"
     depends_on:
       - backend
+    environment:
+      - API_PROXY_TARGET=http://backend:8000
     volumes:
       - ./frontend/src:/app/src
+      - ./frontend/vite.config.ts:/app/vite.config.ts

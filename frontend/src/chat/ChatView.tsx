@@ -8,7 +8,7 @@ import { useChatStream } from './useChatStream'
 import { PopulatingDashboard } from '@/onboard/PopulatingDashboard'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getSessions, getSession } from '@/api/chat'
-import type { TurnRequest, SessionDetail } from '@/api/types'
+import type { TurnRequest } from '@/api/types'
 
 // Stable UUIDv4 for idempotency — regenerated per message send.
 function newIk() { return crypto.randomUUID() }
@@ -62,18 +62,14 @@ export function ChatView() {
 
     async function resume() {
       try {
-        const listRes = await getSessions()
-        if (!listRes.ok) throw new Error(`sessions list ${listRes.status}`)
-        const list = await listRes.json() as { session_id: string }[]
+        const list = await getSessions()
 
         if (!list.length) {
           navigate('/onboard', { replace: true })
           return
         }
 
-        const detailRes = await getSession(list[0].session_id)
-        if (!detailRes.ok) throw new Error(`session detail ${detailRes.status}`)
-        const detail = await detailRes.json() as SessionDetail
+        const detail = await getSession(list[0].session_id)
         loadSession(detail)
       } catch (err) {
         console.error('[ChatView resume]', err)

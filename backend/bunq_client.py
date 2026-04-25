@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import copy
 import json
@@ -97,6 +98,7 @@ class RealBunqClient:
         ).decode()
 
         self._http = httpx.AsyncClient(timeout=30.0)
+        self._session_lock = asyncio.Lock()
 
     def _sign(self, body: bytes) -> str:
         """RSA-sign the request body and return base64-encoded signature."""
@@ -142,46 +144,49 @@ class RealBunqClient:
         """Run the 3-step bunq auth flow if no session token is present."""
         if self._session_token:
             return
+        async with self._session_lock:
+            if self._session_token:
+                return
 
-        print("bunq: starting installation...")
-        # Step 1 — Installation (no auth, no signature needed)
-        install_body = json.dumps({"client_public_key": self._public_key_pem}).encode()
-        resp = await self._http.post(
-            f"{self._base_url}/installation",
-            content=install_body,
-            headers=self._headers(token=None),
-        )
-        data = self._unwrap(self._check_response(resp))
-        installation_token = data["Token"]["token"]
-        print("bunq: installation token obtained")
+            print("bunq: starting installation...")
+            # Step 1 — Installation (no auth, no signature needed)
+            install_body = json.dumps({"client_public_key": self._public_key_pem}).encode()
+            resp = await self._http.post(
+                f"{self._base_url}/installation",
+                content=install_body,
+                headers=self._headers(token=None),
+            )
+            data = self._unwrap(self._check_response(resp))
+            installation_token = data["Token"]["token"]
+            print("bunq: installation token obtained")
 
-        # Step 2 — Device Server (signed with our private key)
-        device_body = json.dumps({"description": "bunq Nest backend", "secret": self._api_key}).encode()
-        resp = await self._http.post(
-            f"{self._base_url}/device-server",
-            content=device_body,
-            headers=self._headers(token=installation_token, body=device_body),
-        )
-        self._check_response(resp)
-        print("bunq: device registered")
+            # Step 2 — Device Server (signed with our private key)
+            device_body = json.dumps({"description": "bunq Nest backend", "secret": self._api_key}).encode()
+            resp = await self._http.post(
+                f"{self._base_url}/device-server",
+                content=device_body,
+                headers=self._headers(token=installation_token, body=device_body),
+            )
+            self._check_response(resp)
+            print("bunq: device registered")
 
-        # Step 3 — Session Server (signed with our private key)
-        session_body = json.dumps({"secret": self._api_key}).encode()
-        resp = await self._http.post(
-            f"{self._base_url}/session-server",
-            content=session_body,
-            headers=self._headers(token=installation_token, body=session_body),
-        )
-        data = self._unwrap(self._check_response(resp))
-        self._session_token = data["Token"]["token"]
+            # Step 3 — Session Server (signed with our private key)
+            session_body = json.dumps({"secret": self._api_key}).encode()
+            resp = await self._http.post(
+                f"{self._base_url}/session-server",
+                content=session_body,
+                headers=self._headers(token=installation_token, body=session_body),
+            )
+            data = self._unwrap(self._check_response(resp))
+            self._session_token = data["Token"]["token"]
 
-        # Extract user ID from whichever user type is present
-        for user_type in ("UserPerson", "UserCompany", "UserApiKey"):
-            if user_type in data:
-                self._bunq_user_id = data[user_type]["id"]
-                break
+            # Extract user ID from whichever user type is present
+            for user_type in ("UserPerson", "UserCompany", "UserApiKey"):
+                if user_type in data:
+                    self._bunq_user_id = data[user_type]["id"]
+                    break
 
-        print(f"bunq: session established, user_id={self._bunq_user_id}")
+            print(f"bunq: session established, user_id={self._bunq_user_id}")
 
     async def _get(self, path: str) -> dict:
         resp = await self._http.get(
