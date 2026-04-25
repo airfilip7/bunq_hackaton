@@ -176,20 +176,7 @@ export function ChatView() {
             </span>
           </div>
         </div>
-        <button
-          style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: 'var(--surface-2)', border: '1px solid var(--surface-3)',
-            color: 'var(--text-secondary)',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer',
-          }}
-          aria-label="menu"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" />
-          </svg>
-        </button>
+
       </div>
 
       {/* Stats bar */}
