@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import json
 import time
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
-import pytest
 import ulid
 
 from backend.models import Turn

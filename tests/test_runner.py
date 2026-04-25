@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import time
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
-import pytest
 import ulid
 
 from backend.agent.runner import execute_write_tool, run_turn, turns_to_messages
