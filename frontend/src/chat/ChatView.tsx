@@ -131,13 +131,7 @@ export function ChatView() {
 
   const {
     sessionId, messages, pendingTool, streamState, errorMessage,
-
-    setSession,
-    appendUserMessage,
-    setPendingTool,
-    setStreamState,
-    setError,
-    loadSession,
+    setSession, appendUserMessage, setPendingTool, setStreamState, loadSession,
   } = useChatStore()
 
   const { stream, abort } = useChatStream()
@@ -251,19 +245,16 @@ export function ChatView() {
         )}
 
         {/* Error */}
-        {errorMessage && streamState !== 'streaming' && (
+        {errorMessage && streamState === 'error' && (
           <div style={{
             margin: '0 28px 8px', padding: '10px 14px', borderRadius: 12,
             background: 'rgba(251,113,133,0.1)', color: 'var(--terracotta)',
-            fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center',maxWidth: 760, marginLeft: 'auto', marginRight: 'auto',
             maxWidth: 760, marginLeft: 'auto', marginRight: 'auto',
           }}>
             <span>{errorMessage}</span>
             <button style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', textDecoration: 'underline', fontSize: 13 }}
-              onClick={() => {
-              setError(null)
-              setStreamState('idle')
-            }}>dismiss</button>
+              onClick={() => setStreamState('idle')}>dismiss</button>
           </div>
         )}
 
