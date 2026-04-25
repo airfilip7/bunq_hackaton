@@ -60,6 +60,14 @@ class SqliteStore:
         self._conn.commit()
         return session
 
+    def get_session(self, session_id: str) -> Session | None:
+        row = self._conn.execute(
+            "SELECT data FROM sessions WHERE session_id = ?", (session_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        return Session.model_validate_json(row[0])
+
     def get_latest_session(self, user_id: str) -> Session | None:
         row = self._conn.execute(
             """
@@ -73,6 +81,18 @@ class SqliteStore:
         if row is None:
             return None
         return Session.model_validate_json(row[0])
+
+    def list_sessions(self, user_id: str, limit: int = 20) -> list[Session]:
+        rows = self._conn.execute(
+            """
+            SELECT data FROM sessions
+            WHERE user_id = ?
+            ORDER BY last_active_at DESC
+            LIMIT ?
+            """,
+            (user_id, limit),
+        ).fetchall()
+        return [Session.model_validate_json(row[0]) for row in rows]
 
     def touch_session(self, session_id: str) -> None:
         now = int(time.time() * 1000)

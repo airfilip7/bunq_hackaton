@@ -199,23 +199,32 @@ backend/
 
 ## Phase 5 — bunq client (1.5h)
 
-**Goal:** uniform interface for transactions, buckets, money moves. Fixture mode default.
+**Goal:** uniform interface for transactions, buckets, money moves. Fixture mode default, real sandbox API available.
 
 ### Tasks
 
 1. `backend/bunq_client.py`:
    - `class BunqClient(Protocol)`: `get_transactions`, `get_buckets`, `move_money`, `create_bucket`.
    - `class FixtureBunqClient` — reads `mocks/transactions.json` + `mocks/buckets.json`, mutates an in-memory copy for writes, returns deterministic fake `ExecutionRef`s.
-   - `class RealBunqClient` — stub with `raise NotImplementedError`. Implement in Phase 11 if time.
-   - Factory `def get_bunq_client() -> BunqClient` based on `BUNQ_MODE` env var.
+   - `class RealBunqClient` — connects to bunq sandbox API via httpx:
+     - 3-step auth flow: installation (RSA key exchange) → device-server → session-server
+     - Lazy session initialization on first API call
+     - Ephemeral RSA keys (generated in memory, sandbox installations are disposable)
+     - Sandbox signing bypass via `X-Bunq-Client-Signature: IGNORE_ONLY_FOR_TESTING`
+     - Maps bunq API response format to our internal dict shapes
+     - Auto-retry on 401 (session expired)
+   - Factory `def get_bunq_client() -> BunqClient` based on `BUNQ_MODE` env var (`fixture` or `sandbox`).
 2. `backend/mocks/transactions.json` — **hand-craft Tim's 6 months.** Monthly salary deposit, rent, groceries, leisure. Numbers must reconcile to €34k savings. The projection runs on these.
 3. `backend/mocks/buckets.json` — at least: checking account, "Buffer" (~€3k), "Savings/House" (~€34k).
+4. `backend/config.py` — added `bunq_api_key`, `bunq_base_url`, `bunq_sandbox` settings.
 
 ### Pitfalls
 
 - **Real bunq OAuth is non-trivial.** Multi-step handshake (installation → device server → session) before first API call. Budget 3+ hours. If behind at the 12h checkpoint, stay on fixture mode.
 - **Token encryption:** if you go live, store tokens encrypted (Fernet with key from env). Never log tokens. Add `__repr__` that redacts the value.
 - **Idempotency on writes:** 60s in-memory dedupe keyed by `tool_use_id`. Prevents double-execute on retry.
+- **Sandbox signing bypass:** use `X-Bunq-Client-Signature: IGNORE_ONLY_FOR_TESTING` header to skip RSA signing in sandbox mode.
+- **bunq response format:** all responses wrapped in `{"Response": [...]}` with typed wrappers — need helper to unwrap.
 
 ---
 

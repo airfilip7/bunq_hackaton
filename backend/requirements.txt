@@ -6,3 +6,7 @@ pydantic==2.10.4
 httpx==0.28.1
 python-multipart==0.0.20
 python-jose[cryptography]==3.3.0
+beautifulsoup4>=4.12
+playwright>=1.40
+playwright-stealth>=1.0
+python-ulid>=2.0

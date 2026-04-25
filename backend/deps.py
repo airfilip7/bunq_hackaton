@@ -5,6 +5,7 @@ from functools import lru_cache
 import jwt
 from fastapi import Header, HTTPException
 
+from backend.bunq_client import BunqClient, get_bunq_client as _factory
 from backend.config import settings
 from backend.storage.sqlite_store import SqliteStore, init_db
 
@@ -16,6 +17,15 @@ def _get_store() -> SqliteStore:
 
 def get_storage() -> SqliteStore:
     return _get_store()
+
+
+@lru_cache(maxsize=1)
+def _get_bunq_client() -> BunqClient:
+    return _factory()
+
+
+def get_bunq_client() -> BunqClient:
+    return _get_bunq_client()
 
 
 def get_current_user_id(authorization: str = Header(...)) -> str:

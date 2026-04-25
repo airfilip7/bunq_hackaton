@@ -1,8 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { WelcomeRoute } from './routes/WelcomeRoute'
-import { OnboardRoute }  from './routes/OnboardRoute'
-import { ChatRoute }     from './routes/ChatRoute'
+import { OnboardRoute } from './routes/OnboardRoute'
+import { ChatRoute }    from './routes/ChatRoute'
 
 const queryClient = new QueryClient()
 
