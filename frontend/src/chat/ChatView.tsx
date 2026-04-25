@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { MessageList } from './MessageList'
 import { ApprovalCard } from './ApprovalCard'
@@ -26,18 +26,22 @@ export function ChatView() {
     setStreamState,
   } = useChatStore()
 
-  const { stream } = useChatStream()
+  const { stream, abort } = useChatStream()
+
+  // Guard prevents StrictMode's double-invoke from firing two requests.
+  const didBootstrapRef = useRef(false)
 
   // Bootstrap: first session opened from /onboard. No user message needed.
   useEffect(() => {
-    if (!bootstrapSessionId) return
+    if (!bootstrapSessionId || didBootstrapRef.current) return
+    didBootstrapRef.current = true
     setSession(bootstrapSessionId)
-    const body: TurnRequest = {
+    stream(bootstrapSessionId, {
       type: 'user_message',
-      content: '__bootstrap__',  // sentinel; backend skips rendering this as a user turn
+      content: '__bootstrap__',
       idempotency_key: newIk(),
-    }
-    stream(bootstrapSessionId, body)
+    })
+    return abort  // cancel stream if component unmounts mid-flight
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bootstrapSessionId])
 
