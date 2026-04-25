@@ -5,13 +5,17 @@ Uses AsyncAnthropicBedrock so all inference stays within AWS (eu-central-1).
 
 import base64
 import json
+import logging
 import re
+import time
 from contextlib import asynccontextmanager
 
 from anthropic import AsyncAnthropicBedrock
 
 from backend.config import settings
 from backend.prompts import VLM_PAYSLIP
+
+logger = logging.getLogger(__name__)
 
 client = AsyncAnthropicBedrock(aws_region=settings.aws_region)
 
@@ -31,6 +35,8 @@ async def extract_payslip(image_bytes: bytes, media_type: str) -> dict:
     Returns a dict matching the VLM_PAYSLIP schema:
     {gross_monthly_eur, net_monthly_eur, employer_name, pay_period, confidence}
     """
+    logger.info("vlm_extract_start model=%s media_type=%s", MODEL_VISION, media_type)
+    t0 = time.time()
     b64 = base64.b64encode(image_bytes).decode("utf-8")
 
     response = await client.messages.create(
@@ -53,6 +59,9 @@ async def extract_payslip(image_bytes: bytes, media_type: str) -> dict:
             }
         ],
     )
+
+    ms = int((time.time() - t0) * 1000)
+    logger.info("vlm_extract_done model=%s latency_ms=%d", MODEL_VISION, ms)
 
     raw_text = response.content[0].text
     cleaned = _JSON_FENCE_RE.sub("", raw_text.strip())
@@ -78,6 +87,10 @@ async def stream_chat(system: str, messages: list[dict], tools: list[dict]):
     The caller (agent runner) is responsible for interpreting events
     (ContentBlockDeltaEvent, ContentBlockStartEvent, etc.).
     """
+    logger.info(
+        "chat_stream_start model=%s system_len=%d messages=%d tools=%d",
+        MODEL_CHAT, len(system), len(messages), len(tools),
+    )
     async with client.messages.stream(
         model=MODEL_CHAT,
         system=system,
