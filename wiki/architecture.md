@@ -309,8 +309,9 @@ type OnboardRequest = {
   s3_key: string;
   funda_url: string;
   funda_price_override_eur?: number;  // manual fallback if LLM extraction fails
-  bunq_oauth_state: string;           // opaque token returned from /bunq/oauth/callback
 };
+// Note: no bunq_oauth_state — the backend uses a static sandbox API key,
+// keyed off the (hard-coded) user_id.
 
 type OnboardResponse = {
   session_id: string;       // first session, ready to stream immediately

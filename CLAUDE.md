@@ -35,17 +35,18 @@ The largest bucket is Impact. The most important question is "would people actua
 
 The product has two surfaces: a one-time onboarding form, and the chat that lives after it.
 
+**Assumed context:** bunq Nest is an in-bunq-app feature. The user is already authenticated as a bunq customer. We do not build login screens. For the demo, user identity is hard-coded (single demo persona, Tim) and bunq access uses a static **sandbox API key** generated via `POST https://public-api.sandbox.bunq.com/v1/sandbox-user-person`.
+
 **First session (onboarding, once per user):**
 
-1. Sign in via Cognito (email + password).
-2. App detects `onboarded == false` → routes to the onboarding form.
-3. User photographs latest Dutch payslip (loonstrook), pastes a Funda URL, completes bunq OAuth.
-4. Form submits → backend uploads payslip to S3, triggers the Lambda extractor (Bedrock vision), parses the Funda URL, pulls a bunq snapshot, persists the profile to DynamoDB.
-5. Backend bootstraps Session #1: synthetic context turn → opens an SSE stream → chat agent's first message streams in with three numbers (gap to deposit, months to goal, mortgage headroom range) and one insight sentence.
+1. App detects `onboarded == false` → routes to the onboarding form.
+2. User photographs latest Dutch payslip (loonstrook) and pastes a Funda URL. Two steps, no bunq connect step — we already have a sandbox key.
+3. Form submits → backend uploads payslip to S3, triggers the Lambda extractor (Bedrock vision), parses the Funda URL, pulls a bunq snapshot via the sandbox key, persists the profile to DynamoDB.
+4. Backend bootstraps Session #1: synthetic context turn → opens an SSE stream → chat agent's first message streams in with three numbers (gap to deposit, months to goal, mortgage headroom range) and one insight sentence.
 
 **Every session after that:**
 
-6. Sign in → app routes straight to `/chat`. Profile + most-recent session + a fresh bunq snapshot are loaded server-side. Agent opens with a "welcome back" turn that streams in.
+5. App routes straight to `/chat`. Profile + most-recent session + a fresh bunq snapshot are loaded server-side. Agent opens with a "welcome back" turn that streams in.
 7. User chats. Agent can re-run read tools (transactions, buckets, projection, Funda) silently and continue. Whenever the agent wants to *do* something — move money, create a bucket — it emits a `propose_*` tool call and the chat shows an inline approval card. Nothing changes in bunq without explicit user approval.
 8. Greyed-out advisor-handoff CTA stays visible. Lights up when the user is within ~6 months of goal.
 
@@ -66,12 +67,12 @@ End-to-end first-session demo in ~90 seconds. Repeat-session demo in <10s to a p
               │ or ECS Fargate)    │ ──────▶ │  Bedrock        │
               │ - /onboard         │         │  - Claude vision│
               │ - /chat (SSE)      │         │  - Sonnet 4.6   │
-              │ - /bunq oauth      │         └─────────────────┘
+              │                    │         └─────────────────┘
               └────┬──────┬────────┘
                    │      │
         S3 PUT     │      │ DynamoDB single table
         ┌──────────▼─┐    │ (Users, Sessions, Turns,
-        │ payslip-   │    │  ToolRuns, BunqTokens,
+        │ payslip-   │    │  ToolRuns,
         │ imgs/...   │    │  PendingTool)
         └─────┬──────┘    │
               │ ObjectCreated / sync invoke
@@ -106,14 +107,13 @@ End-to-end first-session demo in ~90 seconds. Repeat-session demo in <10s to a p
 - **Frontend:** React + Vite. Two routes: `/onboard` (one-time form) and `/chat` (the rest of the product). Dark theme, bunq teal/yellow accents.
 - **Backend:** Python FastAPI on AWS App Runner (ECS Fargate is the fallback). Endpoints:
   - `POST /onboard/upload-url` — returns a presigned S3 PUT URL.
-  - `POST /onboard` — `{s3_key, funda_url, bunq_oauth_code}` → triggers payslip Lambda, parses Funda, completes bunq OAuth, writes profile, bootstraps Session #1.
+  - `POST /onboard` — `{s3_key, funda_url}` → triggers payslip Lambda, parses Funda, pulls a bunq snapshot using the user's sandbox key, writes profile, bootstraps Session #1.
   - `POST /chat/sessions/{id}/turns` — SSE-streamed turn endpoint. Accepts `user_message`, `tool_approval`. See `wiki/agent-loop.md`.
   - `GET /chat/sessions` and `GET /chat/sessions/{id}` — list / load session metadata + history.
-  - `GET /bunq/oauth/callback` — completes the OAuth code-for-token exchange.
-- **Auth:** Amazon Cognito user pool (hosted UI). JWT verified on every request.
+- **Auth:** None for the demo — single hard-coded user. Production would inherit identity from the bunq app context. No Cognito, no login screen.
 - **Inference:** Amazon Bedrock, region `eu-central-1`. Anthropic Claude vision for payslip; Claude Sonnet 4.6 for the chat agent. Pin model ids in `backend/anthropic_client.py` (confirm exact Bedrock model ids at build time — Sonnet 4.6 availability on Bedrock may lag the direct API; if so, fall back to current Sonnet vision).
-- **Storage:** DynamoDB on-demand single table `bunq-nest-main`. S3 bucket `bunq-nest-uploads-eu-central-1` for payslip images (KMS-encrypted, 30d lifecycle on originals). bunq tokens encrypted with KMS key `alias/bunq-tokens` before being stored.
-- **bunq data:** real bunq Public API via OAuth from the start. Token handling in `backend/bunq_client.py`. **[risk]** OAuth in 24h is non-trivial — if we're behind at the 12h checkpoint, fall back to a `BunqClient` stub that reads fixture JSON. The agent loop and data model don't change.
+- **Storage:** DynamoDB on-demand single table `bunq-nest-main`. S3 bucket `bunq-nest-uploads-eu-central-1` for payslip images (KMS-encrypted, 30d lifecycle on originals). bunq sandbox API keys live in the backend's secret manager, not DynamoDB.
+- **bunq data:** bunq sandbox Public API via a static per-user API key (no OAuth). Keys are generated ahead of time with `POST /v1/sandbox-user-person` and stored in the backend's secret manager. `backend/bunq_client.py` signs every call with this key. Production migration to real OAuth is documented in `wiki/architecture.md §6` but out of MVP scope.
 - **Deployment:** Vercel for frontend, App Runner for backend, Lambda for image extraction. All AWS resources in `eu-central-1`. Demo runs off deployed URLs; keep a local FastAPI + fixture-mode bunq fallback ready.
 
 Call out Claude + AWS in the pitch — both are sponsors.

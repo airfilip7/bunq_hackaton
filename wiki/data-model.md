@@ -7,10 +7,12 @@ DynamoDB single-table design + S3 layout for bunq Nest. Keep this in lockstep wi
 ## 1. Why a single DynamoDB table
 
 - All access is keyed off `user_id` and (sometimes) `session_id`. Both compose naturally into a partition key.
-- We only have a handful of entity types (User, Session, Turn, ToolRun, BunqToken, PendingTool). A single-table design keeps the operational surface tiny — one table, one set of IAM, one backup.
+- We only have a handful of entity types (User, Session, Turn, ToolRun, PendingTool). A single-table design keeps the operational surface tiny — one table, one set of IAM, one backup.
 - DynamoDB on-demand mode means zero capacity planning for the hackathon.
 
-Table name: `bunq-nest-main`. Region: `eu-central-1`. Encryption: AWS-owned KMS by default; bunq tokens additionally wrapped with our own KMS CMK before being stored.
+Table name: `bunq-nest-main`. Region: `eu-central-1`. Encryption: AWS-owned KMS by default.
+
+**Note on bunq credentials:** the demo uses a static sandbox API key per demo user, held in the backend's secret manager (not DynamoDB). A `BUNQ_TOKEN` row would be added in production when real OAuth replaces the sandbox key — out of MVP scope.
 
 ---
 
@@ -23,7 +25,6 @@ Table name: `bunq-nest-main`. Region: `eu-central-1`. Encryption: AWS-owned KMS 
 | Turn | `SESSION#{session_id}` | `TURN#{ts_ms}#{turn_id}` | Append-only chat history. `ts_ms` first → naturally sortable. |
 | Tool run | `SESSION#{session_id}` | `TOOLRUN#{tool_use_id}` | One row per tool invocation. Read-only and write tools both land here. |
 | Pending tool (awaiting approval) | `SESSION#{session_id}` | `PENDING_TOOL#{tool_use_id}` | Deleted when approved/denied. Presence = "awaiting approval". |
-| bunq tokens | `USER#{user_id}` | `BUNQ_TOKEN` | Encrypted access + refresh + `expires_at`. |
 
 ### GSI1 — sessions by recency
 
@@ -173,19 +174,7 @@ That's the only secondary index we need.
 
 This row is created when the agent emits a `propose_*` tool call and *deleted* the moment an approval/denial lands. Its presence is the source of truth for "is there a pending action on this session?"
 
-### bunq tokens (encrypted at rest)
-
-```jsonc
-{
-  "PK": "USER#u_01HZ...",
-  "SK": "BUNQ_TOKEN",
-  "ciphertext_blob_b64": "AQID...",         // KMS-encrypted JSON {access, refresh}
-  "kms_key_id":          "alias/bunq-tokens",
-  "expires_at":          1745700000000,
-  "rotated_at":          1745625500000,
-  "scope":               "read"            // upgrades to "read+write" on first write
-}
-```
+_The `BUNQ_TOKEN` row is **production-only** and not part of the MVP. The demo uses a static sandbox API key in the backend's secret manager._
 
 ---
 
@@ -198,7 +187,6 @@ This row is created when the agent emits a `propose_*` tool call and *deleted* t
 | Conversation history for a session | `Query(PK=SESSION#s, SK begins_with TURN#)` |
 | Is there a pending action? | `Query(PK=SESSION#s, SK begins_with PENDING_TOOL#, Limit=1)` |
 | All tool runs for a session (analytics) | `Query(PK=SESSION#s, SK begins_with TOOLRUN#)` |
-| Load bunq token | `GetItem(PK=USER#u, SK=BUNQ_TOKEN)` |
 
 ---
 
@@ -237,4 +225,4 @@ We do **not** store the extracted JSON in S3 — it goes straight onto the user 
 | Hot session partition under heavy chat load | Add a numeric shard suffix to `SESSION#{id}#{shard}` and route writes by hash |
 | Need free-text search over chat history | Stream Turns into OpenSearch via DynamoDB Streams |
 | Need transactional read+write across tool execution + turn append | DynamoDB transactions (already supported, just not used in MVP — explicit choice for code simplicity) |
-| Token blob + profile in the same partition is a privacy footgun | Move `BUNQ_TOKEN` to a separate, more tightly-scoped table |
+| Token blob + profile in the same partition (post-OAuth migration) is a privacy footgun | Move `BUNQ_TOKEN` to a separate, more tightly-scoped table |
