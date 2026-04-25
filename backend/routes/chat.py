@@ -83,7 +83,7 @@ async def create_turn(
                 sse_emit=sse_emit,
             )
         except Exception as exc:
-            await sse_emit("error", {"message": str(exc)})
+            await sse_emit("error", {"message": str(exc), "retryable": True})
         finally:
             await queue.put(None)
 

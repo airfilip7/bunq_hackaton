@@ -81,6 +81,27 @@
   to { transform: rotate(360deg); }
 }
 
+/* Welcome screen — staggered reveal */
+@keyframes bunq-reveal {
+  0%   { opacity: 0; transform: translateY(14px); filter: blur(4px); }
+  60%  { filter: blur(0); }
+  100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+.reveal {
+  opacity: 0;
+  animation: bunq-reveal 720ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+}
+
+/* Deposit ladder bars */
+@keyframes bunq-bar-grow {
+  0%   { transform: scaleY(0); opacity: 0; }
+  100% { transform: scaleY(1); opacity: 1; }
+}
+.bar-grow {
+  transform-origin: bottom;
+  animation: bunq-bar-grow 700ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
 @keyframes bunq-blink {
   0%, 49%   { opacity: 1; }
   50%, 100% { opacity: 0; }
@@ -112,15 +133,18 @@
   color: var(--text-secondary);
   white-space: nowrap;
 }
-.pill .pill-check {
+.pill .pill-check,
+.pill .check {
   width: 14px; height: 14px;
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: 999px;
   background: rgba(30, 200, 200, 0.15);
   color: var(--bunq-teal);
 }
-.pill.pill-live { color: var(--bunq-teal); }
-.pill.pill-live .pill-dot {
+.pill.pill-live,
+.pill.live { color: var(--bunq-teal); }
+.pill.pill-live .pill-dot,
+.pill.live .dot {
   width: 6px; height: 6px; border-radius: 50%;
   background: var(--bunq-teal);
   animation: bunq-blink 1s step-end infinite;

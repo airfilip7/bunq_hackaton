@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
-import { getUploadUrl, uploadPayslip } from '@/api/onboard'
+import { uploadPayslip } from '@/api/onboard'
+import type { PayslipUploadResult } from '@/api/types'
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
 const MAX_BYTES = 10 * 1024 * 1024
@@ -10,7 +11,7 @@ function validate(file: File): string | null {
   return null
 }
 
-type Props = { onComplete: (s3Key: string) => void }
+type Props = { onComplete: (result: PayslipUploadResult) => void }
 
 export function PayslipUpload({ onComplete }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -26,10 +27,9 @@ export function PayslipUpload({ onComplete }: Props) {
     setErrorMsg(null)
     setStatus('uploading')
     try {
-      const uploadData = await getUploadUrl()
-      await uploadPayslip(file, uploadData)
+      const result = await uploadPayslip(file)
       setStatus('done')
-      onComplete(uploadData.s3_key)
+      onComplete(result)
     } catch (err) {
       console.error('[PayslipUpload]', err)
       setErrorMsg('Upload failed — please try again.')

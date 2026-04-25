@@ -8,7 +8,7 @@ import { useChatStream } from './useChatStream'
 import { PopulatingDashboard } from '@/onboard/PopulatingDashboard'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getSessions, getSession } from '@/api/chat'
-import type { TurnRequest, SessionDetail } from '@/api/types'
+import type { TurnRequest } from '@/api/types'
 
 // Stable UUIDv4 for idempotency — regenerated per message send.
 function newIk() { return crypto.randomUUID() }
@@ -30,6 +30,7 @@ export function ChatView() {
     appendUserMessage,
     setPendingTool,
     setStreamState,
+    setError,
     loadSession,
   } = useChatStore()
 
@@ -62,18 +63,14 @@ export function ChatView() {
 
     async function resume() {
       try {
-        const listRes = await getSessions()
-        if (!listRes.ok) throw new Error(`sessions list ${listRes.status}`)
-        const list = await listRes.json() as { session_id: string }[]
+        const list = await getSessions()
 
         if (!list.length) {
           navigate('/onboard', { replace: true })
           return
         }
 
-        const detailRes = await getSession(list[0].session_id)
-        if (!detailRes.ok) throw new Error(`session detail ${detailRes.status}`)
-        const detail = await detailRes.json() as SessionDetail
+        const detail = await getSession(list[0].session_id)
         loadSession(detail)
       } catch (err) {
         console.error('[ChatView resume]', err)
@@ -162,12 +159,11 @@ export function ChatView() {
         padding: '8px 20px 12px', flexShrink: 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-            background: 'linear-gradient(135deg, var(--bunq-teal), #0fa5a5)',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            color: '#06222a', fontWeight: 700, fontSize: 13,
-          }}>b</div>
+          <img
+            src="/bunq-logo.svg"
+            alt="bunq"
+            style={{ height: 22, width: 'auto', filter: 'invert(1) brightness(1.1)', flexShrink: 0 }}
+          />
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
             <span style={{ fontSize: 14, fontWeight: 600 }}>House goal</span>
             <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 500 }}>
@@ -201,7 +197,7 @@ export function ChatView() {
       )}
 
       {/* Error banner */}
-      {errorMessage && streamState === 'error' && (
+      {errorMessage && streamState !== 'streaming' && (
         <div style={{
           margin: '0 16px 8px',
           padding: '10px 12px',
@@ -213,7 +209,10 @@ export function ChatView() {
         }}>
           <span>{errorMessage}</span>
           <button style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', textDecoration: 'underline', fontSize: 13 }}
-            onClick={() => setStreamState('idle')}>dismiss</button>
+            onClick={() => {
+              setError(null)
+              setStreamState('idle')
+            }}>dismiss</button>
         </div>
       )}
 

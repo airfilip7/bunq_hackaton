@@ -3,15 +3,15 @@ import type { Message } from '@/api/types'
 
 function AssistantAvatar() {
   return (
-    <div style={{
-      width: 28, height: 28, borderRadius: 999, flexShrink: 0,
-      background: 'linear-gradient(135deg, var(--bunq-teal), #0fa5a5)',
-      color: '#06222a',
-      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 12, fontWeight: 700,
-    }}>
-      b
-    </div>
+    <img
+      src="/bunq-avatar.png"
+      alt="bunq"
+      style={{
+        width: 28, height: 28, borderRadius: 999, flexShrink: 0,
+        objectFit: 'cover',
+        boxShadow: '0 0 0 3px rgba(30,200,200,0.12)',
+      }}
+    />
   )
 }
 

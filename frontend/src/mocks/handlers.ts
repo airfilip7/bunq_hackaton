@@ -85,21 +85,19 @@ export const handlers = [
     });
   }),
 
-  // Presigned upload URL
-  http.post("/onboard/upload-url", () =>
-    HttpResponse.json({
-      upload_url: "http://localhost:5173/__mock_s3_put",
-      s3_key: `mock-payslip-${Date.now()}.jpg`,
-      expires_at: Date.now() + 300_000,
-      required_headers: { "Content-Type": "image/jpeg" },
-    }),
-  ),
-
-  // S3 PUT (mock bucket)
-  http.put(
-    "http://localhost:5173/__mock_s3_put",
-    () => new HttpResponse(null, { status: 200 }),
-  ),
+  // Direct payslip upload + extraction
+  http.post("/onboard/upload-payslip", async () => {
+    await new Promise((r) => setTimeout(r, 800));
+    return HttpResponse.json({
+      payslip: {
+        gross_monthly_eur: 5167,
+        net_monthly_eur: 3520,
+        employer_name: "TechCorp B.V.",
+        pay_period: "2026-03",
+      },
+      confidence: "high",
+    });
+  }),
 
   // Funda parse — simulates backend fetching + LLM extraction
   http.post("/onboard/parse-funda", async ({ request }) => {
@@ -116,7 +114,8 @@ export const handlers = [
       price_eur: 425000,
       address: address || "Listing",
       size_m2: 78,
-      property_type: "huis",
+      type: "huis",
+      year_built: 1998,
       confidence: "high",
     });
   }),
@@ -129,28 +128,30 @@ export const handlers = [
 
   // Session list
   http.get("/chat/sessions", () =>
-    HttpResponse.json([
-      { session_id: "mock-session-001", started_at: Date.now() },
-    ]),
+    HttpResponse.json({
+      sessions: [
+        { session_id: "mock-session-001", started_at: Date.now() },
+      ],
+    }),
   ),
 
   // Session detail — returns history + profile for session resume
   http.get("/chat/sessions/:id", ({ params }) =>
     HttpResponse.json({
-      session_id: params.id,
-      profile: MOCK_ONBOARD.profile,
-      messages: [
+      session: { session_id: params.id, user_id: "u_demo" },
+      turns: [
         {
-          id: "resume-msg-1",
-          role: "assistant",
+          turn_id: "resume-msg-1",
+          session_id: params.id,
+          ts_ms: Date.now(),
+          kind: "assistant_message",
           content:
             "Welcome back, Tim! Your savings are still at €34,000 — you're 14 months from your deposit target. " +
             "What would you like to focus on today?",
-          streaming: false,
-          tool_calls: [],
+          tool_uses: null,
+          hidden: false,
         },
       ],
-      pending_tool: null,
     }),
   ),
 ];

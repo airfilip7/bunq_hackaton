@@ -73,12 +73,15 @@ export type TurnRequest =
 // Status: proposed by C — needs B sign-off at hour-0 huddle
 // ---------------------------------------------------------------------------
 
-// POST /onboard/upload-url → UploadUrlResponse
-export type UploadUrlResponse = {
-  upload_url: string                        // presigned S3 PUT, 5-min expiry
-  s3_key: string                            // pass back verbatim in OnboardRequest
-  expires_at: number                        // epoch ms
-  required_headers: Record<string, string>  // e.g. { 'Content-Type': 'image/jpeg' }
+// POST /onboard/upload-payslip → PayslipUploadResult
+export type PayslipUploadResult = {
+  payslip: {
+    gross_monthly_eur: number | null
+    net_monthly_eur: number | null
+    employer_name: string | null
+    pay_period: string | null
+  }
+  confidence: 'high' | 'medium' | 'low'
 }
 
 // POST /onboard/parse-funda
@@ -86,13 +89,20 @@ export type FundaParseResult = {
   price_eur: number | null
   address: string | null
   size_m2: number | null
-  property_type: string | null
-  confidence: 'high' | 'medium' | 'low'
+  type: string | null
+  year_built: number | null
+  confidence?: 'high' | 'medium' | 'low'
 }
 
 // POST /onboard
 export type OnboardRequest = {
-  s3_key: string
+  payslip: {
+    gross_monthly_eur: number
+    net_monthly_eur: number
+    employer_name?: string | null
+    pay_period?: string | null
+    confidence: 'high' | 'medium' | 'low'
+  }
   funda_url: string
   funda_price_override_eur?: number  // manual fallback if LLM extraction fails
 }

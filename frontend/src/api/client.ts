@@ -8,5 +8,6 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
   const headers = new Headers(init.headers)
   headers.set('Content-Type', 'application/json')
   headers.set('X-Dev-User-Id', 'u_demo')
+  headers.set('Authorization', 'Bearer demo')
   return fetch(`${API_BASE}${path}`, { ...init, headers })
 }

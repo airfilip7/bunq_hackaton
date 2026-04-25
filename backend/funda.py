@@ -8,8 +8,7 @@ import re
 from pathlib import Path
 
 from bs4 import BeautifulSoup
-from playwright.async_api import async_playwright
-from playwright_stealth import Stealth
+from curl_cffi.requests import AsyncSession
 
 from backend.anthropic_client import MODEL_VISION, client
 from backend.config import settings
@@ -17,7 +16,6 @@ from backend.prompts import LLM_FUNDA
 
 _FIXTURE_DIR = Path(__file__).parent / "mocks" / "funda_listings"
 _JSON_FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$")
-_stealth = Stealth()
 
 
 class FundaFetchError(Exception):
@@ -34,9 +32,8 @@ async def fetch_funda(url: str) -> str:
     Returns raw HTML string. In fixture mode, reads from the local
     funda_listings directory instead of hitting the network.
 
-    Live mode uses Playwright with stealth to bypass Funda's bot
-    protection. Requires ``playwright install chromium`` and a Chrome
-    installation on the host (``channel='chrome'``).
+    Live mode uses curl_cffi with Chrome TLS impersonation to bypass
+    Cloudflare bot protection.
     """
     if settings.funda_mode == "fixture":
         # Derive fixture filename from URL path slug; fall back to default.
@@ -45,31 +42,20 @@ async def fetch_funda(url: str) -> str:
         fixture = candidate if candidate.exists() else _FIXTURE_DIR / "default.html"
         return fixture.read_text(encoding="utf-8")
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True, channel="chrome")
-        context = await browser.new_context(
-            user_agent=(
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/131.0.0.0 Safari/537.36"
-            ),
-            viewport={"width": 1920, "height": 1080},
-            locale="nl-NL",
-            timezone_id="Europe/Amsterdam",
+    async with AsyncSession(impersonate="chrome131") as session:
+        response = await session.get(
+            url,
+            headers={
+                "Accept-Language": "nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7",
+            },
+            timeout=15,
         )
-        page = await context.new_page()
-        await _stealth.apply_stealth_async(page)
 
-        response = await page.goto(url, wait_until="networkidle", timeout=15000)
-        if response is None or response.status != 200:
-            status = response.status if response else "no response"
-            await browser.close()
-            raise FundaFetchError(f"Funda returned HTTP {status} for {url}")
+    if response.status_code != 200:
+        raise FundaFetchError(f"Funda returned HTTP {response.status_code} for {url}")
 
-        html = await page.content()
-        await browser.close()
+    html = response.text
 
-    # Detect the bot-protection wall page
     if "Je bent bijna op de pagina" in html:
         raise FundaFetchError(f"Funda bot protection blocked request for {url}")
 

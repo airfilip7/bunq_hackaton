@@ -13,19 +13,15 @@ FROM python:3.11-slim AS backend
 
 WORKDIR /app
 
-# Playwright/Chromium system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget gnupg ca-certificates fonts-liberation libasound2 libatk-bridge2.0-0 \
-    libatk1.0-0 libcups2 libdbus-1-3 libdrm2 libgbm1 libgtk-3-0 libnspr4 \
-    libnss3 libx11-xcb1 libxcomposite1 libxdamage1 libxrandr2 xdg-utils \
-    libu2f-udev libvulkan1 libxkbcommon0 libpango-1.0-0 libcairo2 \
-    && rm -rf /var/lib/apt/lists/*
-
 COPY --from=backend-builder /install /usr/local
 COPY backend/ backend/
 
-# Install Playwright browsers (as root, before switching user)
-RUN playwright install chromium
+# Install Playwright's bundled Chromium + system dependencies into a
+# world-readable path so appuser can find it at runtime.
+# (Google Chrome has no Linux ARM64 build)
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN playwright install --with-deps chromium \
+    && chmod -R o+rx /ms-playwright
 
 RUN useradd --no-create-home --shell /bin/false appuser
 USER appuser

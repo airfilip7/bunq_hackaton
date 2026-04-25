@@ -1,19 +1,21 @@
 import { apiFetch } from './client'
-import type { OnboardRequest, UploadUrlResponse, OnboardResponse, FundaParseResult } from './types'
+import type { OnboardRequest, OnboardResponse, FundaParseResult, PayslipUploadResult } from './types'
 
-export async function getUploadUrl(): Promise<UploadUrlResponse> {
-  const res = await apiFetch('/onboard/upload-url', { method: 'POST' })
-  if (!res.ok) throw new Error('Failed to get upload URL')
-  return res.json() as Promise<UploadUrlResponse>
-}
+const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
-export async function uploadPayslip(file: File, uploadData: UploadUrlResponse): Promise<void> {
-  const res = await fetch(uploadData.upload_url, {
-    method: 'PUT',
-    headers: uploadData.required_headers,
-    body: file,
+export async function uploadPayslip(file: File): Promise<PayslipUploadResult> {
+  const form = new FormData()
+  form.append('file', file)
+  const res = await fetch(`${API_BASE}/onboard/upload-payslip`, {
+    method: 'POST',
+    headers: {
+      'X-Dev-User-Id': 'u_demo',
+      'Authorization': 'Bearer demo',
+    },
+    body: form,
   })
   if (!res.ok) throw new Error('Payslip upload failed')
+  return res.json() as Promise<PayslipUploadResult>
 }
 
 export async function parseFunda(url: string): Promise<FundaParseResult> {
