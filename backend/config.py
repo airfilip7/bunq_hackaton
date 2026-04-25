@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     demo_user_id: str = "u_demo"
     funda_mode: str = "fixture"
     demo_replay: int = 0
-    s3_bucket: str = "bunq-nest-uploads-eu-central-1"
+    s3_bucket: str = "bunq-nest-uploads-us-east-1"
     s3_presigned_expiry_seconds: int = 300
     dynamo_table: str = "bunq-nest-main"
     cognito_user_pool_id: str = ""

@@ -34,10 +34,22 @@ class PayslipExtract(BaseModel):
     extracted_at: str | None = None
 
 
+def _detect_media_type(image_bytes: bytes, s3_key: str) -> str:
+    """Detect image media type from magic bytes, falling back to the S3 key extension."""
+    if image_bytes[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if image_bytes[:2] == b"\xff\xd8":
+        return "image/jpeg"
+    if s3_key.lower().endswith(".png"):
+        return "image/png"
+    return "image/jpeg"
+
+
 def extract_and_persist(user_id: str, s3_key: str) -> PayslipExtract:
     """Read image from S3, extract fields via Bedrock vision, persist to DynamoDB."""
     image_bytes = s3.get_object_bytes(s3_key)
     b64_data = base64.b64encode(image_bytes).decode("utf-8")
+    media_type = _detect_media_type(image_bytes, s3_key)
 
     request_body = json.dumps({
         "anthropic_version": "bedrock-2023-05-31",
@@ -49,7 +61,7 @@ def extract_and_persist(user_id: str, s3_key: str) -> PayslipExtract:
                     "type": "image",
                     "source": {
                         "type": "base64",
-                        "media_type": "image/jpeg",
+                        "media_type": media_type,
                         "data": b64_data,
                     },
                 },

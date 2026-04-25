@@ -44,6 +44,8 @@ async def upload_payslip(file: UploadFile):
         result = await extract_payslip(image_bytes, media_type)
     except ExtractionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Bedrock call failed: {exc}") from exc
 
     result = normalize_dutch_numbers(result)
     confidence = result.pop("confidence", "low")
