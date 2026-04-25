@@ -1,6 +1,4 @@
 import { useRef, useState } from 'react'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import type { StreamState } from './chatStore'
 
 type Props = {
@@ -11,9 +9,6 @@ type Props = {
 export function Composer({ streamState, onSend }: Props) {
   const [value, setValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
-
-  // Composer is always enabled except mid-stream.
-  // Sending while awaiting_approval = implicit deny + new message (handled in ChatView).
   const disabled = streamState === 'streaming'
 
   function handleSend() {
@@ -31,23 +26,48 @@ export function Composer({ streamState, onSend }: Props) {
   }
 
   return (
-    <div className="flex gap-2 p-4 border-t border-surface-3 bg-surface-0">
-      <Input
+    <div style={{
+      padding: '10px 12px 14px',
+      borderTop: '1px solid var(--surface-3)',
+      background: 'var(--surface-0)',
+      display: 'flex', gap: 8, alignItems: 'center',
+      flexShrink: 0,
+    }}>
+      {/* Attach placeholder — wired up in a future iteration */}
+      <button
+        className="btn btn-ghost btn-sm"
+        style={{ width: 40, height: 40, padding: 0, borderRadius: 12, flexShrink: 0 }}
+        aria-label="attach"
+        tabIndex={-1}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      </button>
+
+      <input
         ref={inputRef}
+        className="input-field"
+        style={{ height: 40, borderRadius: 12, fontSize: 13.5, flex: 1 }}
+        placeholder={disabled ? 'Waiting…' : 'Ask anything about your home-buying goal…'}
         value={value}
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setValue(e.target.value)}
-        onKeyDown={handleKeyDown}
         disabled={disabled}
-        placeholder={disabled ? 'Waiting for response…' : 'Ask anything about your home-buying goal…'}
-        className="bg-surface-2 border-surface-3 text-text-primary placeholder:text-text-disabled"
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={handleKeyDown}
       />
-      <Button
+
+      <button
+        className="btn btn-primary"
         onClick={handleSend}
         disabled={disabled || !value.trim()}
-        className="bg-bunq-teal text-surface-0 hover:bg-bunq-teal/90 shrink-0"
+        style={{ height: 40, width: 40, padding: 0, borderRadius: 12, flexShrink: 0 }}
+        aria-label="send"
       >
-        Send
-      </Button>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5 12L19 5L12 19L10 13L5 12Z" />
+        </svg>
+      </button>
     </div>
   )
 }

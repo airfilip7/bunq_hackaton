@@ -143,8 +143,8 @@ export function ChatView() {
 
   if (resuming) {
     return (
-      <div className="flex flex-col h-screen">
-        <div className="flex-1 px-4 py-6 flex flex-col gap-4">
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100svh' }}>
+        <div style={{ flex: 1, padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <Skeleton className="h-4 w-2/3 bg-surface-2" />
           <Skeleton className="h-4 w-1/2 bg-surface-2" />
           <Skeleton className="h-4 w-3/4 bg-surface-2" />
@@ -154,17 +154,56 @@ export function ChatView() {
   }
 
   return (
-    <div className="flex flex-col h-screen">
-      {profile && bootstrapSessionId && (
-        <div className="px-4 pt-4 pb-2 border-b border-surface-3">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100svh' }}>
+
+      {/* App header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '8px 20px 12px', flexShrink: 0,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+            background: 'linear-gradient(135deg, var(--bunq-teal), #0fa5a5)',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            color: '#06222a', fontWeight: 700, fontSize: 13,
+          }}>b</div>
+          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>House goal</span>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 500 }}>
+              {profile?.target.address ?? 'Set up your goal'}
+              {profile ? ` · €${(profile.target.price_eur / 1000).toFixed(0)}k target` : ''}
+            </span>
+          </div>
+        </div>
+        <button
+          style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: 'var(--surface-2)', border: '1px solid var(--surface-3)',
+            color: 'var(--text-secondary)',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+          aria-label="menu"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Stats bar */}
+      {profile && (
+        <div style={{ padding: '0 16px 12px' }}>
           <PopulatingDashboard profile={profile} />
         </div>
       )}
+
       <MessageList messages={messages} />
 
-      {/* Approval card sits above the composer */}
+      {/* Approval card */}
       {pendingTool && (
-        <div className="px-4 pb-2">
+        <div style={{ padding: '0 12px 10px' }}>
           <ApprovalCard
             proposal={pendingTool}
             disabled={streamState === 'streaming'}
@@ -176,14 +215,18 @@ export function ChatView() {
 
       {/* Error banner */}
       {errorMessage && streamState === 'error' && (
-        <div className="mx-4 mb-2 px-3 py-2 rounded-lg bg-error/10 text-error text-sm flex justify-between">
+        <div style={{
+          margin: '0 16px 8px',
+          padding: '10px 12px',
+          borderRadius: 10,
+          background: 'rgba(255,100,100,0.1)',
+          color: 'var(--error)',
+          fontSize: 13,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
           <span>{errorMessage}</span>
-          <button
-            className="underline"
-            onClick={() => setStreamState('idle')}
-          >
-            dismiss
-          </button>
+          <button style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', textDecoration: 'underline', fontSize: 13 }}
+            onClick={() => setStreamState('idle')}>dismiss</button>
         </div>
       )}
 

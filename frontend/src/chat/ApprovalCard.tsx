@@ -1,15 +1,5 @@
 import { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
 import type { ToolProposal, ProposeMoveMoneyParams } from '@/api/types'
-
-const RISK_COLOURS = {
-  low:    'bg-surface-2 text-text-secondary',
-  medium: 'bg-bunq-yellow/20 text-bunq-yellow',
-  high:   'bg-error/20 text-error',
-}
 
 type Props = {
   proposal: ToolProposal
@@ -19,97 +9,149 @@ type Props = {
 }
 
 export function ApprovalCard({ proposal, disabled, onApprove, onDeny }: Props) {
-  const [editing, setEditing]     = useState(false)
+  const [editing, setEditing]       = useState(false)
   const [editAmount, setEditAmount] = useState('')
 
   const isMoveMoney = proposal.name === 'propose_move_money'
   const params      = proposal.params as ProposeMoveMoneyParams
 
   function handleApprove() {
-    if (editing && editAmount) {
-      onApprove({ amount_eur: parseFloat(editAmount) })
-    } else {
-      onApprove()
-    }
+    onApprove(editing && editAmount ? { amount_eur: parseFloat(editAmount) } : undefined)
   }
 
   return (
-    <Card className="border-bunq-yellow/60 bg-surface-1 max-w-lg">
-      <CardHeader className="pb-2">
-        <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-sm font-medium text-text-primary">
-            Suggested action — needs your approval
-          </CardTitle>
-          <Badge className={RISK_COLOURS[proposal.risk_level]}>
-            {proposal.risk_level}
-          </Badge>
+    <div style={{
+      background: 'var(--surface-2)',
+      borderRadius: 16,
+      borderLeft: '3px solid var(--bunq-yellow)',
+      padding: '16px 16px 14px 18px',
+      display: 'flex', flexDirection: 'column', gap: 12,
+      boxShadow: '0 8px 24px -12px rgba(0,0,0,0.4)',
+    }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+          <div style={{ fontSize: 10, color: 'var(--bunq-yellow)', letterSpacing: '0.1em', fontWeight: 600, textTransform: 'uppercase' }}>
+            Suggested action
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.01em', lineHeight: 1.3 }}>
+            {proposal.summary}
+          </div>
         </div>
-      </CardHeader>
+        <span className={`badge badge-${proposal.risk_level === 'low' ? 'low' : 'low'}`}>
+          <span className="badge-dot" />
+          {proposal.risk_level} risk
+        </span>
+      </div>
 
-      <CardContent className="flex flex-col gap-4">
-        {/* Summary */}
-        <p className="text-base font-semibold text-text-primary">{proposal.summary}</p>
+      {/* Money flow */}
+      {isMoveMoney && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 12px',
+          background: 'var(--surface-1)',
+          border: '1px solid var(--surface-3)',
+          borderRadius: 10,
+        }}>
+          {/* From */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+            <div style={{
+              width: 28, height: 28, borderRadius: 8,
+              background: 'rgba(255,215,46,0.12)',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--bunq-yellow)',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+              </svg>
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.2 }}>From</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {params.from_bucket_name}
+              </div>
+            </div>
+          </div>
 
-        {/* Move money detail */}
-        {isMoveMoney && (
-          <div className="flex items-center gap-2 text-sm text-text-secondary">
-            <span>{params.from_bucket_name}</span>
-            <span>→</span>
-            <span>{params.to_bucket_name}</span>
+          {/* Amount + arrow */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '0 4px' }}>
             {editing ? (
-              <Input
+              <input
+                className="input-field"
                 type="number"
-                className="w-24 h-7 text-sm"
+                style={{ width: 80, height: 32, borderRadius: 8, fontSize: 13, textAlign: 'center', padding: '0 8px' }}
                 placeholder={String(params.amount_eur)}
                 value={editAmount}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditAmount(e.target.value)}
+                onChange={(e) => setEditAmount(e.target.value)}
                 autoFocus
               />
             ) : (
-              <span className="font-medium text-text-primary">€{params.amount_eur}</span>
+              <div className="t-num" style={{ fontSize: 16, fontWeight: 700, color: 'var(--bunq-teal)', letterSpacing: '-0.01em' }}>
+                €{params.amount_eur.toLocaleString('nl-NL')}
+              </div>
             )}
+            <svg width="40" height="6" viewBox="0 0 40 6" fill="none">
+              <path d="M0 3 H34 M30 0 L34 3 L30 6" stroke="var(--bunq-teal)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </svg>
           </div>
-        )}
 
-        {/* Rationale */}
-        <p className="text-xs text-text-secondary">{proposal.rationale}</p>
-
-        {/* Actions */}
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            disabled={disabled}
-            className="bg-bunq-teal text-surface-0 hover:bg-bunq-teal/90"
-            onClick={handleApprove}
-          >
-            Approve
-          </Button>
-
-          {isMoveMoney && !editing && (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={disabled}
-              className="text-text-secondary"
-              onClick={() => setEditing(true)}
-            >
-              Edit amount
-            </Button>
-          )}
-
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={disabled}
-            className="text-text-secondary"
-            onClick={() => onDeny()}
-          >
-            Not now
-          </Button>
+          {/* To */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, justifyContent: 'flex-end' }}>
+            <div style={{ minWidth: 0, textAlign: 'right' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.2 }}>To</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {params.to_bucket_name}
+              </div>
+            </div>
+            <div style={{
+              width: 28, height: 28, borderRadius: 8,
+              background: 'rgba(30,200,200,0.12)',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--bunq-teal)',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 11.5L12 4l9 7.5" /><path d="M5 10v9h14v-9" />
+              </svg>
+            </div>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      )}
+
+      {/* Rationale */}
+      <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--text-secondary)' }}>
+        {proposal.rationale}
+      </div>
+
+      {/* Actions */}
+      <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
+        <button
+          className="btn btn-primary"
+          onClick={handleApprove}
+          disabled={disabled}
+          style={{ flex: 1 }}
+        >
+          Approve
+        </button>
+        {isMoveMoney && !editing && (
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setEditing(true)}
+            disabled={disabled}
+            style={{ height: 40, borderRadius: 10 }}
+          >
+            Edit amount
+          </button>
+        )}
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => onDeny()}
+          disabled={disabled}
+          style={{ height: 40, borderRadius: 10 }}
+        >
+          Not now
+        </button>
+      </div>
+    </div>
   )
 }
-
-
