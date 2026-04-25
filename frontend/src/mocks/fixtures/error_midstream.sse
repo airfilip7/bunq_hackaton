@@ -1,0 +1,5 @@
+event: delta
+data: {"text": "Let me pull the latest projection for you"}
+
+event: error
+data: {"message": "Connection lost. Tap to retry.", "retryable": true}

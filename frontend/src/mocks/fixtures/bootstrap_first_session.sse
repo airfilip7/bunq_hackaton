@@ -1,0 +1,26 @@
+event: delta
+data: {"text": "Hi Tim 👋 I've got your picture. "}
+
+event: delta
+data: {"text": "You have €34,000 saved — "}
+
+event: delta
+data: {"text": "€21,000 short of your €55,000 deposit target on that Utrecht apartment. "}
+
+event: delta
+data: {"text": "At your current rate of €1,450/month, "}
+
+event: delta
+data: {"text": "you're about **14 months out**. "}
+
+event: delta
+data: {"text": "Per Nibud norms, your mortgage headroom is in the €285,000 – €320,000 range — "}
+
+event: delta
+data: {"text": "comfortably covering the €425,000 asking price with the deposit. "}
+
+event: delta
+data: {"text": "What would you like to focus on first?"}
+
+event: done
+data: {"reason": "complete"}
