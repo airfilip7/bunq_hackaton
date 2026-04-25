@@ -21,6 +21,7 @@ dependencies = [
     "Pillow>=10.0",
     "beautifulsoup4>=4.12",
     "python-ulid>=2.0",
+    "cryptography>=42.0",
 ]
 
 [project.optional-dependencies]
@@ -29,6 +30,10 @@ dev = [
     "pytest-asyncio>=0.23",
     "ruff>=0.4",
 ]
+
+[tool.pytest.ini_options]
+markers = ["sandbox: tests that hit the real bunq sandbox API"]
+asyncio_mode = "auto"
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     bedrock_vision_model: str = "us.anthropic.claude-sonnet-4-6"
     bedrock_chat_model: str = "us.anthropic.claude-sonnet-4-6"
     bunq_mode: str = "fixture"
+    bunq_api_key: str = ""
+    bunq_base_url: str = "https://public-api.sandbox.bunq.com/v1"
+    bunq_sandbox: bool = True
     storage_backend: str = "sqlite"
     sqlite_path: str = "/tmp/bunq_nest.db"
     jwt_secret: str = ""
