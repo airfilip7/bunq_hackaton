@@ -162,12 +162,11 @@ export function ChatView() {
         padding: '8px 20px 12px', flexShrink: 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-            background: 'linear-gradient(135deg, var(--bunq-teal), #0fa5a5)',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            color: '#06222a', fontWeight: 700, fontSize: 13,
-          }}>b</div>
+          <img
+            src="/bunq-logo.svg"
+            alt="bunq"
+            style={{ height: 22, width: 'auto', filter: 'invert(1) brightness(1.1)', flexShrink: 0 }}
+          />
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
             <span style={{ fontSize: 14, fontWeight: 600 }}>House goal</span>
             <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 500 }}>

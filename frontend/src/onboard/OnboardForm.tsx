@@ -108,8 +108,17 @@ export function OnboardForm() {
       background: 'var(--surface-0)',
       display: 'flex', flexDirection: 'column',
     }}>
+      {/* Logo */}
+      <div style={{ padding: '16px 24px 4px' }}>
+        <img
+          src="/bunq-logo.svg"
+          alt="bunq"
+          style={{ height: 22, width: 'auto', filter: 'invert(1) brightness(1.1)' }}
+        />
+      </div>
+
       {/* Heading */}
-      <div style={{ padding: '48px 24px 20px' }}>
+      <div style={{ padding: '16px 24px 20px' }}>
         <div className="t-caption" style={{ color: 'var(--bunq-teal)', marginBottom: 6 }}>Set up · 2 steps</div>
         <div className="t-display" style={{ fontSize: 24, lineHeight: 1.2 }}>
           Two things and<br />we're tracking.
