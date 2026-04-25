@@ -22,6 +22,36 @@ SseEmit = Callable[[str, dict], Awaitable[None]]
 MAX_TOOL_ROUNDS = 10
 
 
+def validate_overrides(tool_name: str, params: dict, overrides: dict) -> dict:
+    """Validate override keys/types against the tool's input_schema and return merged params.
+
+    Raises ValueError with a clear message if validation fails.
+    """
+    schema = next((t["input_schema"] for t in TOOL_SCHEMAS if t["name"] == tool_name), None)
+    if schema is None:
+        raise ValueError(f"Unknown tool: {tool_name}")
+
+    properties = schema.get("properties", {})
+
+    for key, value in overrides.items():
+        if key not in properties:
+            raise ValueError(f"Override key '{key}' is not allowed for tool '{tool_name}'")
+
+        expected_type = properties[key].get("type")
+        if expected_type == "string" and not isinstance(value, str):
+            raise ValueError(f"Override key '{key}' must be a string, got {type(value).__name__}")
+        if expected_type == "number" and not isinstance(value, (int, float)):
+            raise ValueError(f"Override key '{key}' must be a number, got {type(value).__name__}")
+        if expected_type in ("number", "integer"):
+            exclusive_minimum = properties[key].get("exclusiveMinimum")
+            if exclusive_minimum is not None and value <= exclusive_minimum:
+                raise ValueError(
+                    f"Override key '{key}' must be > {exclusive_minimum}, got {value}"
+                )
+
+    return {**params, **overrides}
+
+
 def turns_to_messages(turns: list[Turn]) -> list[dict]:
     """Convert stored Turn objects to Anthropic messages format with strict alternation."""
     raw: list[dict] = []
@@ -152,7 +182,15 @@ async def run_turn(
             return
 
         if decision == "approve":
-            params = {**pending.params, **(inbound.get("overrides") or {})}
+            try:
+                params = validate_overrides(
+                    pending.tool_name, pending.params, inbound.get("overrides") or {}
+                )
+            except ValueError as exc:
+                await sse_emit("error", {"message": str(exc)})
+                storage.clear_pending_tool(session_id, pending.tool_use_id)
+                return
+
             result_data = await execute_write_tool(pending.tool_name, params, bunq_client)
             await sse_emit(
                 "tool_result",
@@ -341,6 +379,8 @@ async def run_turn(
                     "tool_name": tu["name"],
                     "params": tu["input"],
                     "summary": pending.summary,
+                    "rationale": pending.rationale,
+                    "risk_level": pending.risk_level,
                 },
             )
             await sse_emit("done", {"reason": "awaiting_approval"})
