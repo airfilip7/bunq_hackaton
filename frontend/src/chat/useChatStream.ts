@@ -37,7 +37,7 @@ export function useChatStream() {
     store.startAssistantMessage(assistantMsgId)
 
     try {
-      const res = await postTurn(sessionId, body)
+      const res = await postTurn(sessionId, body, abort.signal)
       if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
 
       const reader  = res.body.getReader()
@@ -58,8 +58,22 @@ export function useChatStream() {
           handleEvent(ev, assistantMsgId)
         }
       }
+      // Stream ended — ensure message is finalized even if no `done` event arrived
+      // (e.g. backend crash, connection drop that reader treats as clean close).
+      if (useChatStore.getState().streamState === 'streaming') {
+        store.finaliseAssistantMessage(assistantMsgId)
+        store.setStreamState('idle')
+      }
     } catch (err) {
-      if ((err as Error).name === 'AbortError') return
+      if ((err as Error).name === 'AbortError') {
+        // Clean up the aborted stream's message: remove if empty, finalize if partial.
+        useChatStore.setState((s) => ({
+          messages: s.messages
+            .filter((m) => m.id !== assistantMsgId || m.content)
+            .map((m) => m.id === assistantMsgId ? { ...m, streaming: false } : m),
+        }))
+        return
+      }
       store.setError('Connection lost. Tap to retry.')
       store.setStreamState('error')
       store.finaliseAssistantMessage(assistantMsgId)
