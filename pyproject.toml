@@ -30,6 +30,10 @@ dev = [
     "ruff>=0.4",
 ]
 
+[tool.pytest.ini_options]
+markers = ["sandbox: tests that hit the real bunq sandbox API"]
+asyncio_mode = "auto"
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["backend*"]
