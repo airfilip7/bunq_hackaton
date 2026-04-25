@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-const FUNDA_LISTING_REGEX = /^https:\/\/(www\.)?funda\.nl\/(koop|huur|nieuwbouw)\//
+const FUNDA_LISTING_REGEX = /^https:\/\/(www\.)?funda\.nl\/(detail\/)?(koop|huur|nieuwbouw)\//
 const TRACKING_PARAMS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']
 const MIN_PRICE = 50_000
 const MAX_PRICE = 5_000_000

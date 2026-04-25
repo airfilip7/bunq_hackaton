@@ -179,4 +179,4 @@ export function OnboardForm() {
   )
 }
 
-const FUNDA_LISTING_REGEX = /^https:\/\/(www\.)?funda\.nl\/(koop|huur|nieuwbouw)\//
+const FUNDA_LISTING_REGEX = /^https:\/\/(www\.)?funda\.nl\/(detail\/)?(koop|huur|nieuwbouw)\//
