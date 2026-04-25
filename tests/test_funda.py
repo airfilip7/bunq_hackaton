@@ -3,8 +3,6 @@
 import asyncio
 from pathlib import Path
 
-import pytest
-
 from backend.funda import _extract_jsonld, parse_funda, regex_price_fallback
 
 # ---------------------------------------------------------------------------

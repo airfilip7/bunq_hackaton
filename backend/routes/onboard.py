@@ -3,7 +3,7 @@
 import time
 
 from fastapi import APIRouter, Body, HTTPException
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel
 
 import backend.funda as funda_module
 
