@@ -86,8 +86,9 @@ export type OnboardRequest = {
   s3_key: string
   funda_url: string
   funda_price_override_eur?: number  // manual fallback if LLM extraction fails
-  bunq_oauth_state: string           // opaque token from /bunq/oauth/callback
 }
+// Note: no bunq_oauth_state — backend uses a static sandbox API key per
+// (hard-coded) user_id. See wiki/architecture.md §6.
 
 export type ProfileSnapshot = {
   payslip: {

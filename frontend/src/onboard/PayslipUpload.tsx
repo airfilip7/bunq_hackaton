@@ -19,7 +19,8 @@ export function PayslipUpload({ onComplete }: Props) {
       await uploadPayslip(file, uploadData)
       setStatus('done')
       onComplete(uploadData.s3_key)
-    } catch {
+    } catch (err) {
+      console.error('[PayslipUpload]', err)
       setStatus('error')
     }
   }

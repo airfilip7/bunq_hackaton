@@ -9,10 +9,12 @@
 Three deliverables. Priority order is also build order.
 
 1. **`/chat`** — the SSE-streamed chat surface. Renders deltas, tool indicators, approval cards. Owns the input-box state machine across `complete | awaiting_user | awaiting_approval`.
-2. **`/onboard`** — the one-time form. Payslip upload, Funda URL, bunq OAuth redirect, the "populating" moment that ends with the first agent message streaming in.
-3. **Shell** — Cognito hosted-UI integration, dark theme, bunq teal/yellow accents, Wft disclaimer, greyed handoff CTA.
+2. **`/onboard`** — the one-time form. Payslip upload + Funda URL only (two steps). Ends with the "populating" moment as the first agent message streams in.
+3. **Shell** — dark theme, bunq teal/yellow accents, Wft disclaimer, greyed handoff CTA.
 
-Out of scope for C: any backend code, the agent loop, tool implementations, payslip Lambda, DynamoDB, bunq API calls. C only talks to A's HTTP endpoints.
+**Auth:** none. bunq Nest runs inside the bunq app where identity is provided by the host. For the demo, the backend trusts a single hard-coded user.
+
+Out of scope for C: any backend code, the agent loop, tool implementations, payslip Lambda, DynamoDB, bunq API calls. C only talks to A/B's HTTP endpoints.
 
 ---
 
@@ -24,7 +26,7 @@ Out of scope for C: any backend code, the agent loop, tool implementations, pays
 | UI | **shadcn/ui** + Tailwind | Locked. Card, Button, Dialog, Input, Skeleton get used heavily. |
 | Routing | React Router v6 | Two routes only (`/onboard`, `/chat`) |
 | State | React Query (server state) + Zustand (chat session state) | Avoid Redux; chat state is genuinely client-side. |
-| Auth | **Cognito Hosted UI** (full redirect) | Saves ~4h vs custom screens. AWS Amplify Auth or `oidc-client-ts` to handle the JWT lifecycle. |
+| Auth | **None** | Feature lives inside the bunq app; identity comes from the host. Single hard-coded demo user. |
 | Mocking | **MSW** (Mock Service Worker) | In-browser, dev + demo fallback. The unblocker. |
 | SSE | `fetch` + `ReadableStream` reader | `EventSource` can't POST. ~40 LOC custom. |
 | Forms | React Hook Form + Zod | Onboarding form only |
@@ -45,8 +47,7 @@ frontend/
     ├── App.tsx                    # router, providers, theme
     ├── routes/
     │   ├── OnboardRoute.tsx
-    │   ├── ChatRoute.tsx
-    │   └── AuthCallbackRoute.tsx  # Cognito + bunq redirects land here
+    │   └── ChatRoute.tsx
     ├── chat/
     │   ├── ChatView.tsx           # main chat container
     │   ├── MessageList.tsx
@@ -61,20 +62,16 @@ frontend/
     │   ├── OnboardForm.tsx
     │   ├── PayslipUpload.tsx      # presigned URL flow
     │   ├── FundaInput.tsx
-    │   ├── BunqConnect.tsx        # OAuth redirect button
     │   └── PopulatingDashboard.tsx # the magic moment
     ├── shell/
     │   ├── DisclaimerBanner.tsx
     │   ├── HandoffCTA.tsx         # greyed until months_to_goal <= 6
     │   └── ThemeProvider.tsx
     ├── api/
-    │   ├── client.ts              # fetch wrapper + JWT injection
+    │   ├── client.ts              # plain fetch wrapper (no auth)
     │   ├── chat.ts                # POST /turns, GET /sessions, etc.
     │   ├── onboard.ts             # presigned URL, /onboard
     │   └── types.ts               # shared contracts (mirror of backend types)
-    ├── auth/
-    │   ├── cognito.ts             # hosted UI redirect helpers
-    │   └── useAuth.ts
     └── mocks/                     # MSW
         ├── browser.ts
         ├── handlers.ts
@@ -157,8 +154,8 @@ type OnboardRequest = {
   s3_key: string;
   funda_url: string;
   funda_price_override_eur?: number;  // manual fallback
-  bunq_oauth_state: string;           // returned from /bunq/oauth/callback
 };
+// No bunq_oauth_state — backend uses a static sandbox API key per user.
 
 type OnboardResponse = {
   session_id: string;        // first session, ready to stream
@@ -322,28 +319,24 @@ Visual rules:
 
 Per CLAUDE.md the demo's hero is 0:15–0:45: photo → dashboard populates. This is your most important visual work.
 
-### 9.1 Form flow (full-redirect OAuth)
+### 9.1 Form flow (no auth, no redirects)
 
 ```
-1. /onboard mount
-   - if user has no payslip uploaded yet: show step 1
+1. /onboard mount — form is empty.
 2. Step 1: Payslip
    - drag/drop or file picker → POST /onboard/upload-url → PUT to S3
-   - on PUT success: store s3_key in form state
+   - on PUT success: store s3_key in component state
 3. Step 2: Funda URL
    - paste, basic regex validation, "manual price?" disclosure
-4. Step 3: Connect bunq
-   - button → window.location = bunq OAuth URL (full redirect, NOT popup)
-   - state token persisted to localStorage so we can resume after redirect
-5. Bunq redirects to /auth/callback?bunq_state=...
-   - AuthCallbackRoute reads localStorage, restores form, POSTs /onboard
-6. POST /onboard returns ProfileSnapshot + session_id
-7. Navigate to /chat?bootstrap=session_id
+4. "See my home-buying picture"
+   - POST /onboard with { s3_key, funda_url, funda_price_override_eur? }
+   - backend processes (~2.5s) → returns { session_id, profile }
+5. Navigate to /chat?bootstrap=session_id
    - ChatRoute detects bootstrap param → opens stream with no inbound user_message
    - PopulatingDashboard animation runs alongside the streaming agent intro
 ```
 
-**Why localStorage and not sessionStorage:** the bunq redirect lands on a fresh tab context in some browsers. localStorage survives; clear on completion.
+The form lives entirely on `/onboard`; never leaves until success. No localStorage, no redirects, no callback route.
 
 ### 9.2 The populating animation
 
@@ -370,11 +363,11 @@ Keep total animation under 1.5s — judges will be watching the wall clock.
 
 | Hours | Task | Verify |
 |---|---|---|
-| **0–1** | Vite + React + TS scaffold. Tailwind + shadcn init. Routing. Cognito hosted UI redirect (login button → redirect → /auth/callback parses JWT). | Login lands you on `/onboard` with a JWT in memory. |
+| **0–1** | Vite + React + TS scaffold. Tailwind + shadcn init. Routing. | App renders empty `/onboard` route. |
 | **1–2** | MSW setup + 5 fixtures + the `streamTurn` SSE consumer. **Stub `/onboard` endpoints in MSW too.** | A fixture fires `delta` events that render in a bare `<pre>` in `/chat`. |
 | **2–4** | `ChatView` + `MessageList` + `AssistantMessage` (streaming) + `Composer`. Zustand store with the state machine. No styling yet. | All 5 fixtures render correctly: text streams, tool pill appears+resolves, approval card shows on proposal, error event surfaces a retry banner. |
 | **4–6** | `ApprovalCard` + approve/deny/edit flow. Implicit-deny via composer. Resume-pending-tool on mount. | Approve button POSTs the right shape; refreshing mid-approval still shows the card. |
-| **6–9** | `/onboard` form: PayslipUpload (presigned PUT), FundaInput, BunqConnect (full redirect), AuthCallbackRoute, localStorage state preservation. | Full happy path against MSW: upload → funda → bunq mock redirect → /onboard returns snapshot → navigate to /chat. |
+| **6–7.5** | `/onboard` two-step form: PayslipUpload (presigned PUT) + FundaInput + submit. | Full happy path against MSW: upload → funda → /onboard returns snapshot → navigate to /chat. |
 | **9–12** | The populating animation. PopulatingDashboard with three counting-up numbers + InsightCard. Visual polish on the chat. Theme tokens, dark mode, bunq accents. | Demo persona (Tim) flow runs end-to-end against MSW in <90s. |
 | **12–14** | DisclaimerBanner, HandoffCTA, copy polish, error/empty/loading states. Wire to **real backend** as A & B finish — flip MSW off behind a `?mock=1` query param so the demo fallback survives. | Real first-session flow works against deployed backend. |
 | **14–18** | Visual design pass: typography scale, spacing, microcopy, the approval card's yellow accent, the streaming cursor, mobile-ish layout (the demo is desktop but don't break narrow). | Screenshots look like a real product, not a hackathon project. |
@@ -406,7 +399,7 @@ Keep total animation under 1.5s — judges will be watching the wall clock.
 | 1 | A | Will `tool_proposal.params` include human-readable bucket names, not just IDs? (Otherwise the card needs a fetch to render.) |
 | 2 | B | Pin `UploadUrlResponse` and `OnboardRequest`/`OnboardResponse` shapes — write them in `api/types.ts` together. |
 | 3 | A | Is the bootstrap session opened by the frontend (`POST /chat/sessions/{id}/turns` with no body?) or does `/onboard` return a session that's already streaming and the frontend just connects? |
-| 4 | B | bunq OAuth redirect URL — what's the exact `redirect_uri` we register? Needs to be the deployed Vercel URL plus `localhost:5173` for dev. |
+| 4 | B | Where does the demo's sandbox API key live (one per demo user, generated via `POST /v1/sandbox-user-person`)? How does the backend identify "which user" a given request is for in the demo? |
 | 5 | A | On approval `overrides`, what fields are editable? Only `amount_eur` for `propose_move_money`? Pin the editable allowlist so the card knows what to show. |
 | 6 | A & B | `risk_level` — who decides? Agent at proposal time, or runner deterministically by `amount_eur` thresholds? Doesn't change the UI but affects whether "high" can ever appear. |
 
