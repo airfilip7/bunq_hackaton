@@ -21,6 +21,8 @@ dependencies = [
     "Pillow>=10.0",
     "beautifulsoup4>=4.12",
     "python-ulid>=2.0",
+    "playwright>=1.40",
+    "playwright-stealth>=1.0",
     "cryptography>=42.0",
 ]
 
@@ -32,8 +34,11 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-markers = ["sandbox: tests that hit the real bunq sandbox API"]
 asyncio_mode = "auto"
+markers = [
+    "sandbox: tests that hit the real bunq sandbox API",
+    "live: tests that hit the real network (deselect with -m 'not live')",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]
